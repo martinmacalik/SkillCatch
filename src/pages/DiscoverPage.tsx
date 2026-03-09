@@ -18,10 +18,6 @@ interface SkillStat {
   num_users: number;
 }
 
-interface Profile {
-  first_name: string | null;
-}
-
 /* ── pastel banner palette ── */
 
 const BANNER_COLORS = [
