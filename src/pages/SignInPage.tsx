@@ -496,6 +496,14 @@ function RightPanel() {
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
+            onClick={async () => {
+              await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                  redirectTo: `${window.location.origin}/auth/callback`,
+                },
+              });
+            }}
             className="
               w-full rounded-full border border-gray-200
               py-3 text-sm font-medium text-gray-900
