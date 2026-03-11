@@ -388,7 +388,6 @@ export default function SkillsPage() {
 
   /* ── which nodes to show in "All skills" ── */
   const allSkillsNodes = currentBranch ? branchChildren : rootNodes;
-  const allSkillsTitle = currentBranch ? currentBranch.name : "All skills";
 
   return (
     <div
