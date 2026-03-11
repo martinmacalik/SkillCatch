@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
+import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/contexts/AuthProvider'
 
 const searchPlaceholders: Record<string, string> = {
   '/dashboard': 'Search',
@@ -12,6 +15,24 @@ const searchPlaceholders: Record<string, string> = {
 export function TopBar() {
   const location = useLocation()
   const placeholder = searchPlaceholders[location.pathname] || 'Search'
+  const { session } = useAuth()
+  const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null } | null>(null)
+
+  useEffect(() => {
+    if (!session?.user) return
+    supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }) => { if (data) setProfile(data) })
+  }, [session])
+
+  const displayName = profile
+    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ') || (session?.user?.email ?? '')
+    : (session?.user?.email ?? '')
+
+  const email = session?.user?.email ?? ''
 
   return (
     <header className="flex h-21 shrink-0 items-center justify-between rounded-2xl bg-gray-100 px-6">
@@ -31,8 +52,8 @@ export function TopBar() {
         <div className="h-10 w-10 rounded-full bg-pink-100" />
         <div className="h-11 w-11 rounded-full bg-linear-to-br from-pink-300 to-rose-400" />
         <div className="ml-1 text-right">
-          <p className="text-sm font-semibold text-gray-900">Totok Michael</p>
-          <p className="text-xs text-gray-400">tmichael20@mail.com</p>
+          <p className="text-sm font-semibold text-gray-900">{displayName}</p>
+          <p className="text-xs text-gray-400">{email}</p>
         </div>
       </div>
     </header>

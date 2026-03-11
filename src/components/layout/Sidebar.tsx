@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   MessageSquare,
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
+import { supabase } from '@/lib/supabaseClient'
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Overview', to: '/dashboard' },
@@ -26,6 +27,13 @@ const generalItems = [
 ]
 
 export function Sidebar() {
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    navigate('/')
+  }
+
   return (
     <aside className="flex w-[230px] shrink-0 flex-col rounded-2xl bg-gray-100">
       {/* Logo */}
@@ -78,7 +86,10 @@ export function Sidebar() {
           </NavLink>
         ))}
 
-        <button className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800"
+        >
           <LogOut className="h-5 w-5" />
           Logout
         </button>

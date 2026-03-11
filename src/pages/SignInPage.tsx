@@ -172,6 +172,20 @@ function RightPanel() {
         }
         pendingCredentialsRef.current = null;
 
+        // Upsert profile with metadata from signup
+        const user = data.session.user;
+        const meta = user.user_metadata ?? {};
+        await supabase.from("profiles").upsert(
+          {
+            id: user.id,
+            first_name: meta.first_name ?? null,
+            last_name: meta.last_name ?? null,
+            avatar_url: meta.avatar_url ?? null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id", ignoreDuplicates: false }
+        );
+
         // Redirect to dashboard
         navigate("/dashboard", { replace: true });
       }

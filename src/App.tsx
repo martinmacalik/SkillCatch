@@ -4,6 +4,7 @@ import LandingPage from '@/pages/LandingPage.tsx'
 import SignInPage from './pages/SignInPage'
 import AuthCallback from './pages/AuthCallback.tsx'
 import ProfilePage from './pages/ProfilePage'
+import SettingsPage from './pages/SettingsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { DashboardLayout } from './components/layout/DashboardLayout'
 import DashboardPage from './pages/DashboardPage'
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="skills" element={<SkillsPage />} />
         <Route path="learn" element={<LearnPage />} />
         <Route path="discover" element={<DiscoverPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route
         path="/profile"

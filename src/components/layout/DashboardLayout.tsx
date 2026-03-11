@@ -9,7 +9,7 @@ export function DashboardLayout() {
       <Sidebar />
       <div className="flex flex-1 flex-col gap-4 overflow-hidden">
         <TopBar />
-        <main className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-gray-100 p-7">
+        <main className="dashboard-main flex flex-1 flex-col overflow-hidden rounded-2xl bg-gray-100 p-7">
           <Outlet />
         </main>
       </div>
