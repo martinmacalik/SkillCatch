@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
+import { useSearch } from '@/contexts/SearchContext'
 
 const searchPlaceholders: Record<string, string> = {
   '/dashboard': 'Search',
@@ -16,6 +17,8 @@ export function TopBar() {
   const location = useLocation()
   const placeholder = searchPlaceholders[location.pathname] || 'Search'
   const { session } = useAuth()
+  const { query, setQuery } = useSearch()
+  const isSkills = location.pathname === '/dashboard/skills'
   const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null } | null>(null)
 
   useEffect(() => {
@@ -42,6 +45,9 @@ export function TopBar() {
         <input
           type="text"
           placeholder={placeholder}
+          value={isSkills ? query : undefined}
+          onChange={isSkills ? (e) => setQuery(e.target.value) : undefined}
+          onKeyDown={undefined}
           className="w-full rounded-4xl bg-white py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10"
         />
       </div>

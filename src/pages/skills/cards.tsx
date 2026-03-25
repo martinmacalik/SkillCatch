@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { colorForIndex, type SkillNode } from "./types";
 
 /* ── Horizontal scroll row ── */
@@ -52,15 +52,23 @@ export function LeafCard({
   numUsers,
   index,
   action,
+  fill,
+  onView,
 }: {
   node: SkillNode;
   numUsers: number;
   index: number;
-  action?: { type: "add"; onClick: () => void } | { type: "remove"; onClick: () => void };
+  action?: { type: "add"; onClick: () => void } | { type: "remove"; onClick: () => void } | { type: "added" };
+  fill?: boolean;
+  onView?: () => void;
 }) {
+  const clickable = action?.type === "add" || !!onView;
+  const handleClick = onView ?? (action?.type === "add" ? action.onClick : undefined);
+
   return (
     <div
-      className="flex w-56 shrink-0 cursor-pointer flex-col rounded-2xl bg-white transition hover:-translate-y-0.5"
+      onClick={handleClick}
+      className={`flex flex-col rounded-2xl bg-white transition hover:-translate-y-0.5 ${clickable ? "cursor-pointer" : "cursor-default"} ${fill ? "w-full" : "w-56 shrink-0"}`}
       style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}
     >
       <div className="relative p-2.5 pb-0">
@@ -68,29 +76,23 @@ export function LeafCard({
           <img
             src={node.image_url}
             alt={node.name}
-            className="h-[164px] w-full rounded-xl object-cover"
+            className="h-41 w-full rounded-xl object-cover"
           />
         ) : (
-          <div className={`h-[164px] w-full rounded-xl ${colorForIndex(index)}`} />
+          <div className={`h-41 w-full rounded-xl ${colorForIndex(index)}`} />
         )}
         {action && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              action.onClick();
-            }}
-            className={`absolute right-4 top-4 rounded-lg p-1.5 text-white shadow-md transition ${
-              action.type === "add"
-                ? "bg-purple-600 hover:bg-purple-700"
-                : "bg-gray-400 hover:bg-red-500"
+          <div
+            className={`absolute right-5 top-5 rounded-md p-1.5 shadow-md ${
+              action.type === "remove"
+                ? "bg-white text-black"
+                : "bg-white text-black"
             }`}
           >
-            {action.type === "add" ? (
-              <Plus className="h-3.5 w-3.5" />
-            ) : (
-              <X className="h-3.5 w-3.5" />
-            )}
-          </button>
+            {action.type === "add" && <Plus className="h-3.5 w-3.5" />}
+            {action.type === "added" && <Check className="h-3.5 w-3.5" />}
+            {action.type === "remove" && <X className="h-3.5 w-3.5" />}
+          </div>
         )}
       </div>
       <div className="flex flex-1 flex-col px-3.5 pb-3 pt-3">

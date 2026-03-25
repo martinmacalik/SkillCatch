@@ -2,8 +2,11 @@ import { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Plus } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../contexts/AuthProvider";
+import { useSearch } from "../../contexts/SearchContext";
 import { ScrollRow, LeafCard } from "./cards";
 import AddSkillsView from "./AddSkillsView";
+import AllSkillsView from "./AllSkillsView";
+import EditSkillModal from "./EditSkillModal";
 import type { SkillNode } from "./types";
 
 type View = "overview" | "all" | "add";
@@ -59,12 +62,19 @@ function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
 
 export default function SkillsPage() {
   const { session } = useAuth();
+  const { setQuery } = useSearch();
   const [view, setView] = useState<View>("overview");
+
+  const goTo = (v: View) => {
+    if (v !== "add") setQuery("");
+    setView(v);
+  };
 
   const [firstName, setFirstName] = useState("");
   const [skillCount, setSkillCount] = useState(0);
   const [recentSkills, setRecentSkills] = useState<SkillNode[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
+  const [editingNode, setEditingNode] = useState<{ node: SkillNode; index: number } | null>(null);
 
   /* ── profile name ── */
   useEffect(() => {
@@ -114,14 +124,11 @@ export default function SkillsPage() {
     fetchRecent();
   }, [fetchRecent]);
 
-  /* ══ All Skills view (placeholder) ══ */
+  /* ══ All Skills view ══ */
   if (view === "all") {
     return (
-      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden -mx-7 px-7 -mt-5 pt-5 -mb-7 pb-8" style={{ scrollbarColor: "rgba(156,163,175,0.5) transparent" }}>
-        <SubHeader title="All Skills" onBack={() => setView("overview")} />
-        <div className="flex flex-1 items-center justify-center rounded-2xl border-2 border-dashed border-gray-200">
-          <p className="text-sm text-gray-400">Table coming soon</p>
-        </div>
+      <div className="flex flex-1 flex-col -mx-7 px-7 -mt-5 pt-5 -mb-7 pb-8 min-h-0">
+        <AllSkillsView onGoToAdd={() => goTo("add")} onBack={() => goTo("overview")} />
       </div>
     );
   }
@@ -130,7 +137,7 @@ export default function SkillsPage() {
   if (view === "add") {
     return (
       <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden -mx-7 px-7 -mt-5 pt-5 -mb-7 pb-8" style={{ scrollbarColor: "rgba(156,163,175,0.5) transparent" }}>
-        <SubHeader title="Add Skills" onBack={() => setView("overview")} />
+        <SubHeader title="Add Skills" onBack={() => goTo("overview")} />
         <AddSkillsView onSkillAdded={handleSkillAdded} />
       </div>
     );
@@ -138,6 +145,16 @@ export default function SkillsPage() {
 
   /* ══ Overview ══ */
   return (
+    <>
+    {editingNode && session?.user && (
+      <EditSkillModal
+        node={editingNode.node}
+        index={editingNode.index}
+        userId={session.user.id}
+        onSave={() => setEditingNode(null)}
+        onCancel={() => setEditingNode(null)}
+      />
+    )}
     <div
       className="flex flex-1 flex-col gap-8 overflow-y-auto overflow-x-hidden -mx-7 px-7 -mt-5 pt-5 -mb-7 pb-8 skills-scroll"
       style={{ scrollbarColor: "rgba(156,163,175,0.5) transparent" }}
@@ -165,7 +182,13 @@ export default function SkillsPage() {
       ) : recentSkills.length > 0 ? (
         <ScrollRow label="Recently added">
           {recentSkills.map((node, i) => (
-            <LeafCard key={node.id} node={node} numUsers={0} index={i} />
+            <LeafCard
+              key={node.id}
+              node={node}
+              numUsers={0}
+              index={i}
+              onView={() => setEditingNode({ node, index: i })}
+            />
           ))}
         </ScrollRow>
       ) : null}
@@ -177,16 +200,17 @@ export default function SkillsPage() {
           title="All Skills"
           description="View and manage your full skill list"
           color="bg-violet-50"
-          onClick={() => setView("all")}
+          onClick={() => goTo("all")}
         />
         <NavCard
           icon={<Plus className="h-7 w-7 text-emerald-500" />}
           title="Add Skills"
           description="Browse and discover new skills to add"
           color="bg-emerald-50"
-          onClick={() => setView("add")}
+          onClick={() => goTo("add")}
         />
       </div>
     </div>
+    </>
   );
 }

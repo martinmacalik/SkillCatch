@@ -7,6 +7,9 @@ export default {
         sans: ["Montserrat", "ui-sans-serif", "system-ui"],
         serif: ["Literata", "ui-serif", "Georgia"],
       },
+      gridTemplateColumns: {
+        '9': 'repeat(9, minmax(0, 1fr))',
+      },
     },
   },
   plugins: [],

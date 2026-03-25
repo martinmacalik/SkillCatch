@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
-import { Search, ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../contexts/AuthProvider";
+import { useSearch } from "../../contexts/SearchContext";
 import { ScrollRow, LeafCard, BranchCard } from "./cards";
+import AddSkillModal, { type AttributeValue } from "./AddSkillModal";
 import type { SkillNode, SkillStat } from "./types";
 
 interface AddSkillsViewProps {
@@ -11,8 +13,8 @@ interface AddSkillsViewProps {
 
 export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
   const { session } = useAuth();
+  const { query, setQuery } = useSearch();
 
-  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SkillNode[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -27,6 +29,7 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
   const [breadcrumbs, setBreadcrumbs] = useState<SkillNode[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [pendingNode, setPendingNode] = useState<{ node: SkillNode; index: number } | null>(null);
 
   /* ── data fetching ── */
 
@@ -139,15 +142,37 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
 
   /* ── add skill ── */
 
-  const addSkill = async (node: SkillNode) => {
+  // Opens the confirmation modal
+  const openAddModal = (node: SkillNode, index: number) => {
     if (!session?.user || userSkillIds.has(node.id)) return;
+    setPendingNode({ node, index });
+  };
+
+  // Called when user confirms in the modal
+  const confirmAddSkill = async (attributeValues: AttributeValue[], status: string) => {
+    if (!session?.user || !pendingNode) return;
+    const { node } = pendingNode;
+
     const { error } = await supabase
       .from("user_skills")
-      .insert({ user_id: session.user.id, skill_node_id: node.id });
+      .insert({ user_id: session.user.id, skill_node_id: node.id, status });
+
     if (!error) {
+      if (attributeValues.length > 0) {
+        await supabase.from("user_skill_attributes").insert(
+          attributeValues.map((av) => ({
+            user_id: session.user.id,
+            skill_node_id: node.id,
+            attribute_def_id: av.attribute_def_id,
+            value_json: av.value_json,
+          }))
+        );
+      }
       setUserSkillIds((prev) => new Set([...prev, node.id]));
       onSkillAdded();
     }
+
+    setPendingNode(null);
   };
 
   /* ── branch navigation ── */
@@ -182,23 +207,23 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
     }
   };
 
-  /* ── search ── */
+  /* ── search driven by TopBar ── */
 
-  const handleSearch = async () => {
-    const q = searchQuery.trim();
+  useEffect(() => {
+    const q = query.trim();
     if (!q) {
       setSearchResults([]);
       setIsSearching(false);
       return;
     }
     setIsSearching(true);
-    const { data } = await supabase
+    supabase
       .from("skill_nodes")
       .select("*")
       .ilike("name", `%${q}%`)
-      .limit(30);
-    setSearchResults(data ?? []);
-  };
+      .limit(30)
+      .then(({ data }) => setSearchResults(data ?? []));
+  }, [query]);
 
   /* ── loading ── */
 
@@ -213,33 +238,8 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
   const allSkillsNodes = currentBranch ? branchChildren : rootNodes;
 
   return (
+    <>
     <div className="flex flex-col gap-8">
-      {/* Search bar */}
-      <div className="flex items-center gap-2">
-        <div className="relative max-w-sm flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              if (!e.target.value.trim()) {
-                setIsSearching(false);
-                setSearchResults([]);
-              }
-            }}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="Search for a skill..."
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
-          />
-        </div>
-        <button
-          onClick={handleSearch}
-          className="rounded-xl bg-purple-700 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-800"
-        >
-          Search
-        </button>
-      </div>
-
       {/* Search results */}
       {isSearching ? (
         <section>
@@ -247,43 +247,53 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
             <button
               onClick={() => {
                 setIsSearching(false);
-                setSearchQuery("");
                 setSearchResults([]);
+                setQuery("");
               }}
               className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <h2 className="text-2xl font-normal text-gray-900">
-              Results for "{searchQuery}"
+              Results for "{query}"
             </h2>
           </div>
           {searchResults.length === 0 ? (
             <p className="py-12 text-center text-sm text-gray-400">No skills found.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {searchResults.map((node, i) =>
-                node.is_leaf ? (
-                  <LeafCard
-                    key={node.id}
-                    node={node}
-                    numUsers={statsMap[node.id] ?? 0}
-                    index={i}
-                    action={
-                      !userSkillIds.has(node.id)
-                        ? { type: "add", onClick: () => addSkill(node) }
-                        : undefined
-                    }
-                  />
-                ) : (
-                  <BranchCard
-                    key={node.id}
-                    node={node}
-                    numUsers={statsMap[node.id] ?? 0}
-                    index={i}
-                    onClick={() => openBranch(node)}
-                  />
-                )
+            <div className="flex flex-col gap-5">
+              {/* Branches first */}
+              {searchResults.filter((n) => !n.is_leaf).length > 0 && (
+                <div className="grid grid-cols-2 gap-5 lg:grid-cols-3">
+                  {searchResults.filter((n) => !n.is_leaf).map((node, i) => (
+                    <BranchCard
+                      key={node.id}
+                      node={node}
+                      numUsers={statsMap[node.id] ?? 0}
+                      index={i}
+                      onClick={() => openBranch(node)}
+                    />
+                  ))}
+                </div>
+              )}
+              {/* Leaf nodes: 3 per branch column, same gap */}
+              {searchResults.filter((n) => n.is_leaf).length > 0 && (
+                <div className="grid grid-cols-6 gap-5 lg:grid-cols-9">
+                  {searchResults.filter((n) => n.is_leaf).map((node, i) => (
+                    <LeafCard
+                      key={node.id}
+                      node={node}
+                      numUsers={statsMap[node.id] ?? 0}
+                      index={i}
+                      fill
+                      action={
+                        userSkillIds.has(node.id)
+                          ? { type: "added" }
+                          : { type: "add", onClick: () => openAddModal(node, i) }
+                      }
+                    />
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -300,9 +310,9 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
                   numUsers={statsMap[node.id] ?? 0}
                   index={i}
                   action={
-                    !userSkillIds.has(node.id)
-                      ? { type: "add", onClick: () => addSkill(node) }
-                      : undefined
+                    userSkillIds.has(node.id)
+                      ? { type: "added" }
+                      : { type: "add", onClick: () => openAddModal(node, i) }
                   }
                 />
               ))}
@@ -319,9 +329,9 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
                   numUsers={statsMap[node.id] ?? 0}
                   index={i}
                   action={
-                    !userSkillIds.has(node.id)
-                      ? { type: "add", onClick: () => addSkill(node) }
-                      : undefined
+                    userSkillIds.has(node.id)
+                      ? { type: "added" }
+                      : { type: "add", onClick: () => openAddModal(node, i) }
                   }
                 />
               ))}
@@ -437,5 +447,15 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
         </>
       )}
     </div>
+
+    {pendingNode && (
+      <AddSkillModal
+        node={pendingNode.node}
+        index={pendingNode.index}
+        onConfirm={confirmAddSkill}
+        onCancel={() => setPendingNode(null)}
+      />
+    )}
+    </>
   );
 }

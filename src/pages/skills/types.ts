@@ -7,6 +7,18 @@ export interface SkillNode {
   image_url: string | null;
 }
 
+export interface SkillAttributeDef {
+  id: string;
+  skill_node_id: string;
+  key: string;
+  label: string;
+  type: string;        // e.g. "text" | "number" | "enum"
+  unit: string | null;
+  required: boolean;
+  enum_values: string[] | null;
+  sort_order: number;
+}
+
 export interface SkillStat {
   skill_node_id: string;
   num_users: number;
