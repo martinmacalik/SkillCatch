@@ -434,7 +434,7 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
                           index={i}
                           action={
                             !userSkillIds.has(node.id)
-                              ? { type: "add", onClick: () => addSkill(node) }
+                              ? { type: "add", onClick: () => openAddModal(node, i) }
                               : undefined
                           }
                         />
