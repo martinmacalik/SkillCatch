@@ -6,12 +6,52 @@ import { useState, useEffect, useRef } from "react";
 
 export default function SignUp() {
   return (
-    // Page background and centering
-    <div className="min-h-screen bg-white flex items-center justify-center p-3 sm:p-6">
-      {/* Card wrapper with taller aspect ratio */}
-      <div className="w-full max-w-6xl aspect-auto md:aspect-3/2 rounded-[35px] sm:rounded-[55px] bg-white overflow-hidden">
-        {/* Split layout */}
-        <div className="h-full w-full flex flex-col md:flex-row gap-0 md:gap-7">
+    <div className="relative min-h-screen bg-white flex items-center justify-center min-[1095px]:p-6">
+      {/* Mobile-only: full-screen gradient background */}
+      <div className="absolute inset-0 min-[1095px]:hidden overflow-hidden">
+        <ShaderGradientCanvas
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+        >
+          <ShaderGradient
+            animate="on"
+            brightness={1.1}
+            cAzimuthAngle={180}
+            cDistance={3.6}
+            cPolarAngle={90}
+            cameraZoom={1}
+            color1="#ff8682"
+            color2="#db8edb"
+            color3="#8c8de1"
+            envPreset="city"
+            grain="on"
+            lightType="3d"
+            positionX={-1.4}
+            positionY={0}
+            positionZ={0}
+            range="disabled"
+            rangeEnd={40}
+            rangeStart={0}
+            reflection={0.1}
+            rotationX={0}
+            rotationY={10}
+            rotationZ={50}
+            shader="defaults"
+            type="plane"
+            uAmplitude={1}
+            uDensity={1.3}
+            uFrequency={5.5}
+            uSpeed={0.2}
+            uStrength={4}
+            uTime={0}
+            wireframe={false}
+            zoomOut={false}
+          />
+        </ShaderGradientCanvas>
+      </div>
+
+      {/* Card: white card floating on gradient (mobile) | two-panel card (desktop) */}
+      <div className="relative z-10 w-full mx-4 bg-white rounded-[35px] overflow-hidden min-[1095px]:mx-0 min-[1095px]:max-w-6xl min-[1095px]:aspect-3/2 min-[1095px]:rounded-[55px]">
+        <div className="w-full flex flex-col min-[1095px]:flex-row min-[1095px]:h-full min-[1095px]:gap-7">
           <LeftPanel />
           <RightPanel />
         </div>
@@ -22,10 +62,10 @@ export default function SignUp() {
 
 function LeftPanel() {
   return (
-    // Left side with ShaderGradient background
-    <div className="relative w-full md:w-1/2 h-48 md:h-auto rounded-t-[35px] sm:rounded-t-[55px] md:rounded-[55px] overflow-hidden">
+    // Left side with ShaderGradient background — hidden on mobile
+    <div className="hidden min-[1095px]:block relative min-[1095px]:w-1/2 min-[1095px]:rounded-[55px] overflow-hidden">
       {/* ShaderGradient background */}
-      <div className="absolute inset-0 scale-150 md:scale-100">
+      <div className="absolute inset-0">
         <ShaderGradientCanvas
           style={{
             position: 'absolute',
@@ -349,7 +389,7 @@ function RightPanel() {
   };
 
   return (
-    <div className="w-full md:w-1/2 p-6 sm:p-10 flex flex-col justify-center">
+    <div className="w-full min-[1095px]:w-1/2 p-6 sm:p-10 flex flex-col justify-center">
       {/* Back arrow */}
       <button
         type="button"
@@ -533,7 +573,7 @@ function RightPanel() {
               <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
               <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
             </svg>
-            Continue with Google
+            <span className="hidden sm:inline">Continue with Google</span>
           </button>
 
           <button
@@ -558,7 +598,7 @@ function RightPanel() {
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
             </svg>
-            Continue with GitHub
+            <span className="hidden sm:inline">Continue with GitHub</span>
           </button>
         </div>
       </form>

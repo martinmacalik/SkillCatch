@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   List,
   LayoutGrid,
@@ -13,6 +13,20 @@ import {
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../contexts/AuthProvider";
 import { colorForIndex, type SkillNode } from "./types";
+
+// Inject iridescent keyframes once at module load
+if (typeof document !== "undefined" && !document.getElementById("irid-kf")) {
+  const s = document.createElement("style");
+  s.id = "irid-kf";
+  s.textContent = `
+    @keyframes iridShift {
+      0%   { filter: hue-rotate(0deg)   brightness(1)    saturate(1);    }
+      50%  { filter: hue-rotate(28deg)  brightness(1.12) saturate(1.2);  }
+      100% { filter: hue-rotate(-28deg) brightness(0.95) saturate(0.85); }
+    }
+  `;
+  document.head.appendChild(s);
+}
 import EditSkillModal from "./EditSkillModal";
 
 type Status = "watchlist" | "learning" | "dormant" | "learned";
@@ -198,6 +212,98 @@ export default function AllSkillsView({
     );
   }, [session]);
 
+  // ── Drag-and-drop ─────────────────────────────────────────────
+  const dragRef = useRef<{
+    skill: EnrichedSkill;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+  } | null>(null);
+  const dropRef = useRef<{ colKey: Status; rowIndex: number } | null>(null);
+  const colEls = useRef<Partial<Record<Status, HTMLDivElement>>>({});
+
+  const [dragSkill, setDragSkill] = useState<EnrichedSkill | null>(null);
+  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ colKey: Status; rowIndex: number } | null>(null);
+
+  const registerCol = useCallback((key: Status, el: HTMLDivElement | null) => {
+    if (el) colEls.current[key] = el;
+    else delete colEls.current[key];
+  }, []);
+
+  const handleDragStart = useCallback((skill: EnrichedSkill, e: React.PointerEvent) => {
+    dragRef.current = { skill, startX: e.clientX, startY: e.clientY, dragging: false };
+  }, []);
+
+  const commitDrop = useCallback(async (
+    skill: EnrichedSkill,
+    target: { colKey: Status; rowIndex: number } | null
+  ) => {
+    if (!target || !session?.user || skill.status === target.colKey) return;
+    await supabase
+      .from("user_skills")
+      .update({ status: target.colKey })
+      .eq("user_id", session.user.id)
+      .eq("skill_node_id", skill.skill_node_id);
+    setSkills((prev) =>
+      prev.map((s) => s.skill_node_id === skill.skill_node_id ? { ...s, status: target.colKey } : s)
+    );
+  }, [session]);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const d = dragRef.current;
+      if (!d) return;
+      if (!d.dragging) {
+        if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 4) return;
+        d.dragging = true;
+        setDragSkill(d.skill);
+      }
+      setGhostPos({ x: e.clientX, y: e.clientY });
+      let target: { colKey: Status; rowIndex: number } | null = null;
+      for (const col of COLUMNS) {
+        const el = colEls.current[col.key];
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) continue;
+        const cards = el.querySelectorAll("[data-kanban-card]");
+        let rowIndex = cards.length;
+        for (let i = 0; i < cards.length; i++) {
+          const cr = cards[i].getBoundingClientRect();
+          if (e.clientY < cr.top + cr.height / 2) { rowIndex = i; break; }
+        }
+        target = { colKey: col.key, rowIndex };
+        break;
+      }
+      dropRef.current = target;
+      setDropTarget(target);
+    };
+    const onUp = () => {
+      const d = dragRef.current;
+      if (d?.dragging) commitDrop(d.skill, dropRef.current);
+      dragRef.current = null;
+      dropRef.current = null;
+      setDragSkill(null);
+      setGhostPos(null);
+      setDropTarget(null);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [commitDrop]);
+
+  useEffect(() => {
+    document.body.style.cursor = dragSkill ? "grabbing" : "";
+    document.body.style.userSelect = dragSkill ? "none" : "";
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [dragSkill]);
+
   return (
     <>
     {editingSkill && session?.user && (
@@ -208,6 +314,29 @@ export default function AllSkillsView({
         onSave={() => { setEditingSkill(null); fetchSkills(); }}
         onCancel={() => setEditingSkill(null)}
       />
+    )}
+    {dragSkill && ghostPos && (
+      <div
+        style={{
+          position: "fixed",
+          left: ghostPos.x - 90,
+          top: ghostPos.y - 40,
+          width: 180,
+          zIndex: 9999,
+          pointerEvents: "none",
+          transform: "rotate(3deg) scale(0.95)",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
+          borderRadius: 20,
+          background: "white",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ height: 56, background: "linear-gradient(135deg,#7c3aed,#a855f7)" }} />
+        <div style={{ padding: "10px 14px" }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#111827" }}>{dragSkill.node.name}</p>
+          <p style={{ margin: "3px 0 0", fontSize: 11, color: "#9ca3af" }}>{dragSkill.category}</p>
+        </div>
+      </div>
     )}
     <div className="flex flex-1 flex-col gap-6 min-h-0 overflow-hidden">
       {/* Header */}
@@ -273,7 +402,16 @@ export default function AllSkillsView({
           onTogglePin={handleTogglePin}
         />
       ) : (
-        <KanbanView skills={filtered} onEdit={openEdit} onAdvance={handleAdvance} onTogglePin={handleTogglePin} />
+        <KanbanView
+          skills={filtered}
+          onEdit={openEdit}
+          onAdvance={handleAdvance}
+          onTogglePin={handleTogglePin}
+          dragSkillId={dragSkill?.skill_node_id ?? null}
+          dropTarget={dropTarget}
+          onDragStart={handleDragStart}
+          onRegisterCol={registerCol}
+        />
       )}
     </div>
     </>
@@ -363,7 +501,7 @@ function ListView({
                 {skill.node.image_url ? (
                   <img src={skill.node.image_url} alt={skill.node.name} className="h-9 w-9 rounded-lg object-cover" />
                 ) : (
-                  <div className={`h-9 w-9 shrink-0 rounded-lg ${colorForIndex(i)}`} />
+                  <IridescentSquare skillId={skill.skill_node_id} index={i} />
                 )}
                 <span className="text-sm font-medium text-gray-900">{skill.node.name}</span>
               </div>
@@ -398,16 +536,61 @@ function KanbanView({
   onEdit,
   onAdvance,
   onTogglePin,
+  dragSkillId,
+  dropTarget,
+  onDragStart,
+  onRegisterCol,
 }: {
   skills: EnrichedSkill[];
   onEdit: (node: SkillNode, index: number) => void;
   onAdvance: (skillNodeId: string, currentStatus: Status) => void;
   onTogglePin: (skillNodeId: string, currentPinned: boolean) => void;
+  dragSkillId: string | null;
+  dropTarget: { colKey: Status; rowIndex: number } | null;
+  onDragStart: (skill: EnrichedSkill, e: React.PointerEvent) => void;
+  onRegisterCol: (key: Status, el: HTMLDivElement | null) => void;
 }) {
   return (
     <div className="grid flex-1 min-h-0 overflow-hidden grid-cols-4 gap-3">
       {COLUMNS.map((col) => {
         const colSkills = skills.filter((s) => s.status === col.key);
+        const isDropCol = !!dropTarget && dropTarget.colKey === col.key;
+        const dropRow = isDropCol ? dropTarget!.rowIndex : -1;
+
+        const items: React.ReactNode[] = [];
+        for (let i = 0; i <= colSkills.length; i++) {
+          if (isDropCol && dropRow === i) {
+            items.push(
+              <div
+                key="__placeholder__"
+                style={{
+                  height: 140,
+                  borderRadius: 20,
+                  background: "#f9fafb",
+                  border: "2px dashed #d1d5db",
+                  flexShrink: 0,
+                }}
+              />
+            );
+          }
+          if (i < colSkills.length) {
+            const skill = colSkills[i];
+            items.push(
+              <KanbanCard
+                key={skill.skill_node_id}
+                skill={skill}
+                index={i}
+                onEdit={onEdit}
+                onAdvance={onAdvance}
+                onTogglePin={onTogglePin}
+                isLast={col.key === COLUMNS[COLUMNS.length - 1].key}
+                isDragSource={dragSkillId === skill.skill_node_id}
+                onDragStart={onDragStart}
+              />
+            );
+          }
+        }
+
         return (
           <div key={col.key} className="flex min-h-0 flex-col gap-2 overflow-hidden">
             {/* Column header */}
@@ -425,25 +608,16 @@ function KanbanView({
 
             {/* Cards */}
             <div
+              ref={(el) => onRegisterCol(col.key, el)}
               className="flex flex-1 flex-col gap-2 overflow-y-auto"
               style={{ scrollbarWidth: "none" }}
             >
-              {colSkills.length === 0 ? (
+              {colSkills.length === 0 && !isDropCol ? (
                 <div className="flex flex-1 items-center justify-center">
                   <p className="text-xs text-gray-300">No skills here</p>
                 </div>
               ) : (
-                colSkills.map((skill, i) => (
-                  <KanbanCard
-                    key={skill.skill_node_id}
-                    skill={skill}
-                    index={i}
-                    onEdit={onEdit}
-                    onAdvance={onAdvance}
-                    onTogglePin={onTogglePin}
-                    isLast={col.key === COLUMNS[COLUMNS.length - 1].key}
-                  />
-                ))
+                items
               )}
             </div>
           </div>
@@ -460,6 +634,8 @@ function KanbanCard({
   onAdvance,
   onTogglePin,
   isLast,
+  isDragSource,
+  onDragStart,
 }: {
   skill: EnrichedSkill;
   index: number;
@@ -467,9 +643,16 @@ function KanbanCard({
   onAdvance: (skillNodeId: string, currentStatus: Status) => void;
   onTogglePin: (skillNodeId: string, currentPinned: boolean) => void;
   isLast: boolean;
+  isDragSource: boolean;
+  onDragStart: (skill: EnrichedSkill, e: React.PointerEvent) => void;
 }) {
   return (
-    <div className="shrink-0 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
+    <div
+      data-kanban-card
+      className="shrink-0 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-100"
+      style={{ opacity: isDragSource ? 0.3 : 1, cursor: "grab", touchAction: "none", transition: "opacity 0.15s" }}
+      onPointerDown={(e) => onDragStart(skill, e)}
+    >
       {/* Image — 90% width with padding */}
       <div className="relative px-3 pt-3" onClick={() => onEdit(skill.node, index)}>
         <div className="cursor-pointer overflow-hidden rounded-2xl">
@@ -519,6 +702,74 @@ function KanbanCard({
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Iridescent square (CSS-only, no WebGL) ── */
+
+/** FNV-1a hash — proper avalanche effect, great for UUID strings */
+function fnv32(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** Xorshift32 PRNG seeded from FNV-1a hash */
+function seededRand(seed: number) {
+  let s = seed || 1;
+  return () => {
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 0x100000000;
+  };
+}
+
+function IridescentSquare({ skillId, index }: { skillId: string; index: number }) {
+  const rand = seededRand(fnv32(skillId));
+
+  // Skip 15–45° (brown zone)
+  const rh = () => { const h = Math.floor(rand() * 315); return h < 15 ? h : h + 30; };
+  const rs = () => Math.floor(rand() * 15) + 82;
+  const rl = () => Math.floor(rand() * 15) + 62;
+
+  const count = Math.floor(rand() * 3) + 3; // 3–5 blobs
+  const blobs = Array.from({ length: count }, () => ({
+    hue: rh(), sat: rs(), lit: rl(),
+    x: Math.floor(rand() * 110) - 10,   // –10 % to 100 %
+    y: Math.floor(rand() * 110) - 10,
+    size: Math.floor(rand() * 60) + 50, // 50–110 % of element
+  }));
+
+  return (
+    <div
+      className="h-9 w-9 shrink-0 rounded-lg relative overflow-hidden"
+      style={{
+        background: `hsl(${blobs[0].hue},${blobs[0].sat}%,${blobs[0].lit}%)`,
+        animation: `iridShift ${3 + (index % 4) * 0.7}s ease-in-out ${(index % 7) * 0.45}s infinite alternate`,
+      }}
+    >
+      {/* Blobs container extended beyond bounds so blur edge is never visible */}
+      <div style={{ position: "absolute", inset: "-30%", filter: "blur(7px)" }}>
+        {blobs.map((b, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              borderRadius: "50%",
+              width: `${b.size}%`,
+              height: `${b.size}%`,
+              left: `${b.x}%`,
+              top: `${b.y}%`,
+              background: `hsl(${b.hue},${b.sat}%,${b.lit}%)`,
+            }}
+          />
+        ))}
       </div>
     </div>
   );
