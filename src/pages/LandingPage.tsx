@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react';
-import AppScreen from '../assets/AppScreen.png';
+import AppScreen from '../assets/AppScreen4x.png';
+import LogoColored from '../assets/LogoColored.png';
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from '../contexts/AuthProvider';
 
@@ -40,7 +41,7 @@ function Navbar() {
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between py-6 md:backdrop-blur-none md:bg-transparent md:border-none backdrop-blur-md bg-white/70 border-b border-gray-200/50 -mx-6 lg:-mx-8 px-6 lg:px-8">
       {/* Left: brand */}
-      <div className="text-xl md:text-2xl text-black font-semibold">SkillCatch</div>
+      <img src={LogoColored} alt="SkillCatch" className="h-7 md:h-8 w-auto" />
 
       {/* Right: actions */}
       <div className="flex items-center gap-3 md:gap-6">

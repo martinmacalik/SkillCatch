@@ -160,39 +160,34 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Stats Row ── */}
-        <div className="grid shrink-0 grid-cols-4 gap-5" style={{ height: 'clamp(120px, calc((100% - 4rem) * 0.25), 180px)' }}>
+        <div className="grid shrink-0 grid-cols-4 gap-2 sm:gap-3 lg:gap-5">
           {/* Total Skills – accent card */}
-          <div className="flex h-full flex-col justify-between rounded-2xl bg-gradient-to-br from-indigo-900 to-fuchsia-700 p-6 text-white">
+          <div className="flex flex-col justify-between rounded-2xl bg-gradient-to-br from-indigo-900 to-fuchsia-700 p-3 text-white sm:p-4 lg:p-6">
             <div className="flex items-start justify-between">
-              <p className="text-m font-medium text-purple-100">Total Skills</p>
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
-                <ArrowUpRight className="h-5 w-5" />
+              <p className="text-[11px] font-medium text-purple-100 sm:text-sm">Total</p>
+              <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-white/20 sm:flex lg:h-9 lg:w-9">
+                <ArrowUpRight className="h-4 w-4 lg:h-5 lg:w-5" />
               </span>
             </div>
-            <div className="flex items-end gap-2">
-              <p className="text-6xl font-medium leading-none">{totalSkills}</p>
-            </div>
-            <p className="text-m text-purple-200">Skills tracked</p>
+            <p className="my-1 text-3xl font-medium leading-none sm:my-2 sm:text-4xl lg:text-6xl">{totalSkills}</p>
+            <p className="hidden text-xs text-purple-200 sm:block sm:text-sm">Skills tracked</p>
           </div>
 
-          <StatCard title="Day Streak" value={String(dayStreak)} badgeLabel="Consecutive login days" />
-          <StatCard title="Skills Learning" value={String(learningCount)} badgeLabel="Currently in progress" />
-          <StatCard title="New Chats" value="0" badgeLabel="Coming soon" />
+          <StatCard shortLabel="Streak" title="Day Streak" value={String(dayStreak)} badgeLabel="Consecutive login days" />
+          <StatCard shortLabel="Learning" title="Skills Learning" value={String(learningCount)} badgeLabel="Currently in progress" />
+          <StatCard shortLabel="Chats" title="New Chats" value="0" badgeLabel="Coming soon" />
         </div>
 
         {/* ── Rows 2 & 3 Combined – Custom Asymmetric Grid ── */}
-        <div
-          className="grid flex-1 grid-cols-6 gap-5"
-          style={{ gridTemplateRows: '4fr 1fr 1fr 4fr' }}
-        >
-          {/* Learning Progress: rows 1-2, cols 1-3 */}
-          <div className="col-span-3 col-start-1 row-start-1 flex flex-col rounded-2xl bg-white p-6" style={{ gridRow: '1 / 3' }}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:flex-1 2xl:min-h-155 2xl:grid-cols-6 2xl:gap-5 2xl:grid-rows-[4fr_1fr_1fr_4fr]">
+          {/* Learning Progress: tablet col1 row2 | desktop rows 1-2, cols 1-3 */}
+          <div className="flex min-h-48 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-2 2xl:col-span-3 2xl:col-start-1 2xl:row-start-1 2xl:row-end-3 2xl:min-h-0">
             <h3 className="text-base font-semibold text-gray-900">Learning Progress</h3>
             <div className="flex flex-1 items-end justify-around gap-3 px-2 pb-4">
               {progressData.map((bar, i) => (
                 <div key={i} className="flex flex-col items-center gap-2">
                   <div
-                    className="w-16 rounded-t-full transition-all"
+                    className="w-8 rounded-t-full transition-all 2xl:w-16"
                     style={{
                       height: `${bar.height}%`,
                       backgroundColor: bar.color,
@@ -205,16 +200,16 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Reminders: rows 1-2, cols 4-5 */}
-          <div className="col-span-2 col-start-4 flex flex-col rounded-2xl bg-white p-6" style={{ gridRow: '1 / 3' }}>
+          {/* Reminders: tablet col1 row3 | desktop rows 1-2, cols 4-5 */}
+          <div className="flex min-h-36 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-3 2xl:col-span-2 2xl:col-start-4 2xl:row-start-1 2xl:row-end-3 2xl:min-h-0">
             <h3 className="text-base font-semibold text-gray-900">Reminders</h3>
             <div className="flex flex-1 items-center justify-center">
               <p className="text-sm text-gray-400">No reminders yet</p>
             </div>
           </div>
 
-          {/* Skills Learning: rows 1-3, col 6 */}
-          <div className="col-span-1 col-start-6 flex flex-col rounded-2xl bg-white p-6" style={{ gridRow: '1 / 4' }}>
+          {/* Skills Learning: tablet col2 row2 | desktop rows 1-3, col 6 */}
+          <div className="flex min-h-36 flex-col rounded-2xl bg-white p-6 sm:col-start-2 sm:row-start-2 2xl:col-span-1 2xl:col-start-6 2xl:row-start-1 2xl:row-end-4 2xl:min-h-0">
             <h3 className="mb-3 text-base font-semibold text-gray-900">Skills Learning</h3>
             {learningSkills.length === 0 ? (
               <div className="flex flex-1 items-center justify-center">
@@ -240,8 +235,8 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Chats: rows 3-4, cols 1-2 */}
-          <div className="col-span-2 col-start-1 flex flex-col rounded-2xl bg-white p-6" style={{ gridRow: '3 / 5' }}>
+          {/* Chats: tablet col1 row1 | desktop rows 3-4, cols 1-2 */}
+          <div className="flex min-h-48 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-1 2xl:col-span-2 2xl:col-start-1 2xl:row-start-3 2xl:row-end-5 2xl:min-h-0">
             <div className="flex shrink-0 items-center justify-between">
               <h3 className="text-base font-semibold text-gray-900">Chats</h3>
               <button className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200">
@@ -272,8 +267,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Pinned Skill: rows 3-4, cols 3-5 */}
-          <div className="col-span-3 col-start-3 flex flex-col rounded-2xl bg-white p-6" style={{ gridRow: '3 / 5' }}>
+          {/* Pinned Skill: tablet col2 row3 | desktop rows 3-4, cols 3-5 */}
+          <div className="flex min-h-48 flex-col rounded-2xl bg-white p-6 sm:col-start-2 sm:row-start-3 2xl:col-span-3 2xl:col-start-3 2xl:row-start-3 2xl:row-end-5 2xl:min-h-0">
             <h3 className="mb-3 text-base font-semibold text-gray-900">Pinned Skill</h3>
             {pinnedSkill ? (
               <button
@@ -303,8 +298,8 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Time Tracker: row 4 only, col 6 */}
-          <div className="col-span-1 col-start-6 flex flex-col justify-end rounded-2xl bg-gradient-to-br from-indigo-900 to-fuchsia-700 p-6" style={{ gridRow: '4 / 5' }}>
+          {/* Time Tracker: tablet col2 row1 | desktop row 4, col 6 */}
+          <div className="flex min-h-24 flex-col justify-end rounded-2xl bg-gradient-to-br from-indigo-900 to-fuchsia-700 p-6 sm:col-start-2 sm:row-start-1 2xl:col-span-1 2xl:col-start-6 2xl:row-start-4 2xl:row-end-5 2xl:min-h-0">
             <p className="text-2xl font-bold text-white">Time Tracker</p>
           </div>
         </div>
@@ -316,24 +311,29 @@ export default function DashboardPage() {
 /* ── Sub-components ── */
 
 function StatCard({
+  shortLabel,
   title,
   value,
   badgeLabel,
 }: {
+  shortLabel: string
   title: string
   value: string
   badgeLabel: string
 }) {
   return (
-    <div className="flex h-full flex-col justify-between rounded-2xl bg-white p-6">
+    <div className="flex flex-col justify-between rounded-2xl bg-white p-3 sm:p-4 lg:p-6">
       <div className="flex items-start justify-between">
-        <p className="text-m font-medium text-gray-500">{title}</p>
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100">
-          <ArrowUpRight className="h-5 w-5 text-gray-400" />
+        <p className="text-[11px] font-medium text-gray-500 sm:text-sm">
+          <span className="sm:hidden">{shortLabel}</span>
+          <span className="hidden sm:inline">{title}</span>
+        </p>
+        <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-gray-100 sm:flex lg:h-9 lg:w-9">
+          <ArrowUpRight className="h-4 w-4 text-gray-400 lg:h-5 lg:w-5" />
         </span>
       </div>
-      <p className="text-6xl font-medium text-gray-900">{value}</p>
-      <p className="text-m text-gray-400">{badgeLabel}</p>
+      <p className="my-1 text-3xl font-medium text-gray-900 sm:my-2 sm:text-4xl lg:text-6xl">{value}</p>
+      <p className="hidden text-xs text-gray-400 sm:block sm:text-sm">{badgeLabel}</p>
     </div>
   )
 }

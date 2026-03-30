@@ -38,9 +38,9 @@ export function TopBar() {
   const email = session?.user?.email ?? ''
 
   return (
-    <header className="flex h-21 shrink-0 items-center justify-between rounded-2xl bg-gray-100 px-6">
-      {/* Search */}
-      <div className="relative w-96">
+    <header className="flex h-14 shrink-0 items-center justify-between rounded-2xl bg-gray-100 px-4 sm:h-16 sm:px-6 2xl:h-21">
+      {/* Search — hidden on mobile, visible sm+ */}
+      <div className="relative hidden w-full max-w-xs sm:block sm:max-w-sm lg:max-w-md">
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
@@ -52,12 +52,17 @@ export function TopBar() {
         />
       </div>
 
+      {/* Mobile: page title instead of search */}
+      <p className="text-base font-semibold text-gray-900 sm:hidden">
+        {placeholder}
+      </p>
+
       {/* Profile section */}
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-gray-200" />
-        <div className="h-10 w-10 rounded-full bg-pink-100" />
-        <div className="h-11 w-11 rounded-full bg-linear-to-br from-pink-300 to-rose-400" />
-        <div className="ml-1 text-right">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="hidden h-10 w-10 rounded-full bg-gray-200 sm:block" />
+        <div className="hidden h-10 w-10 rounded-full bg-pink-100 sm:block" />
+        <div className="h-9 w-9 rounded-full bg-linear-to-br from-pink-300 to-rose-400 sm:h-11 sm:w-11" />
+        <div className="ml-1 hidden text-right sm:block">
           <p className="text-sm font-semibold text-gray-900">{displayName}</p>
           <p className="text-xs text-gray-400">{email}</p>
         </div>

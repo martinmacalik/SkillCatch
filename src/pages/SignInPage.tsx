@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react";
+import Logo from "../assets/Logo.png";
 import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -141,9 +142,7 @@ function LeftPanel() {
       </div> */}
 
       {/* Logo top-left */}
-      <div className="absolute top-10 left-10 text-white text-3xl font-bold z-10">
-        SC
-      </div>
+      <img src={Logo} alt="SkillCatch" className="absolute top-10 left-10 h-10 w-auto z-10" />
 
       {/* Bottom center text */}
       <div className="absolute inset-0 flex items-end justify-center px-15 pb-10 z-10">
