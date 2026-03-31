@@ -12,6 +12,8 @@ import ChatsPage from './pages/ChatsPage'
 import SkillsPage from './pages/SkillsPage'
 import LearnPage from './pages/LearnPage'
 import DiscoverPage from './pages/DiscoverPage'
+import HelpPage from './pages/HelpPage'
+import SkillFeedbackPage from './pages/SkillFeedbackPage'
 
 export default function App() {
   return (
@@ -33,6 +35,8 @@ export default function App() {
         <Route path="learn" element={<LearnPage />} />
         <Route path="discover" element={<DiscoverPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="help" element={<HelpPage />} />
+        <Route path="skill-feedback" element={<SkillFeedbackPage />} />
       </Route>
       <Route
         path="/profile"
