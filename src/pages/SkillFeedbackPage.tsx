@@ -722,9 +722,11 @@ function MissingSkillForm() {
 
 /* ── Category definitions ────────────────────────────────────────── */
 
+type IconComponent = React.ComponentType<{ className?: string }>
+
 const CATEGORIES: {
   key: Category
-  icon: React.ElementType
+  icon: IconComponent
   title: string
   desc: string
   iconClass: string
