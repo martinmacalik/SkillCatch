@@ -45,7 +45,14 @@ requestsRouter.get('/:id', requireAuth, requireAdmin, async (req, res, next) => 
       )
       .eq('id', id)
       .single();
-    if (error || !data) {
+    if (error) {
+      if (error.code === 'PGRST116') {
+        res.status(404).json({ error: 'Request not found' });
+        return;
+      }
+      throw error;
+    }
+    if (!data) {
       res.status(404).json({ error: 'Request not found' });
       return;
     }

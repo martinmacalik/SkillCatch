@@ -49,7 +49,7 @@ async function setMessageStatus(
       return;
     }
 
-    await supabaseAdmin.from('admin_audit_log').insert({
+    const { error: auditErr } = await supabaseAdmin.from('admin_audit_log').insert({
       actor_user_id: req.user.id,
       action,
       entity_type: 'support_message',
@@ -57,6 +57,7 @@ async function setMessageStatus(
       before_data: { status: existing.status },
       after_data: { status: newStatus },
     });
+    if (auditErr) throw auditErr;
 
     const { data: updated, error } = await supabaseAdmin
       .from('support_messages')
