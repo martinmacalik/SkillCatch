@@ -18,6 +18,11 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_entity_type
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at
   ON admin_audit_log(created_at DESC);
 
+-- Composite partial index for the common admin query: pending requests by recency
+CREATE INDEX IF NOT EXISTS idx_restructure_requests_pending_created
+  ON node_restructure_requests(created_at DESC)
+  WHERE status = 'pending';
+
 -- Approval RPC: atomically applies tree changes, writes audit log, marks request approved
 -- Called by admin-api with service role after validating proposal shape
 -- Supports proposal types: 'rename', 'reparent', 'add_child'
@@ -32,6 +37,11 @@ DECLARE
   v_request record;
   v_proposal_type text;
 BEGIN
+  -- Verify actor is an admin before proceeding
+  IF NOT EXISTS (SELECT 1 FROM admin_users WHERE user_id = p_actor_user_id) THEN
+    RAISE EXCEPTION 'insufficient_privileges' USING HINT = 'Actor must be a registered admin';
+  END IF;
+
   -- Lock the row to prevent concurrent approvals
   SELECT * INTO v_request
   FROM node_restructure_requests
@@ -50,6 +60,9 @@ BEGIN
 
   -- Apply tree changes based on proposal type
   IF v_proposal_type = 'rename' THEN
+    IF (v_request.proposal->'changes'->>'new_name') IS NULL THEN
+      RAISE EXCEPTION 'invalid_proposal_data' USING HINT = 'new_name is required for rename';
+    END IF;
     UPDATE skill_nodes
     SET name = v_request.proposal->'changes'->>'new_name'
     WHERE id = v_request.target_node_id;
