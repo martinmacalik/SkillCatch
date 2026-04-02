@@ -35,6 +35,10 @@ export async function requireAdmin(
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
   const { data, error } = await supabaseAdmin
     .from('admin_users')
     .select('role')
@@ -44,7 +48,12 @@ export async function requireAdmin(
     res.status(403).json({ error: 'Access denied: not an admin' });
     return;
   }
-  req.adminRole = data.role as 'developer' | 'moderator';
+  const role = data.role;
+  if (role !== 'developer' && role !== 'moderator') {
+    res.status(403).json({ error: 'Access denied: unrecognized role' });
+    return;
+  }
+  req.adminRole = role;
   next();
 }
 

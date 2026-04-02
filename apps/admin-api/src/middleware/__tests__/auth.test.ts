@@ -7,7 +7,7 @@ vi.mock('../../lib/supabase', () => ({
   supabaseAdmin: { from: vi.fn() },
 }));
 
-import { requireAuth, requireAdmin } from '../auth';
+import { requireAuth, requireAdmin, requireDeveloper } from '../auth';
 import { supabaseAuth, supabaseAdmin } from '../../lib/supabase';
 
 function makeApp(...middleware: Parameters<typeof express.Router['prototype']['get']>[1][]) {
@@ -117,7 +117,7 @@ describe('requireAdmin', () => {
 });
 
 describe('requireDeveloper', () => {
-  it('returns 403 for moderator role', async () => {
+  beforeEach(() => {
     vi.mocked(supabaseAuth.auth.getUser).mockResolvedValue({
       data: { user: { id: 'user-123', email: 'test@test.com' } },
       error: null,
@@ -129,7 +129,9 @@ describe('requireDeveloper', () => {
         }),
       }),
     } as any);
-    const { requireDeveloper } = await import('../auth');
+  });
+
+  it('returns 403 for moderator role', async () => {
     const app = express();
     app.use(express.json());
     app.get('/test', requireAuth as any, requireAdmin as any, requireDeveloper as any, (_req: any, res: any) =>
