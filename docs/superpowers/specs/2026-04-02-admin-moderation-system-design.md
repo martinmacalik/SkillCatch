@@ -429,14 +429,7 @@ No admin API URL. No service role key. Ever.
 
 ### 7.4 `apps/admin-api/vercel.json`
 
-```json
-{
-  "version": 2,
-  "routes": [{ "src": "/(.*)", "dest": "api/index.ts" }]
-}
-```
-
-No `builds` block needed — Vercel detects `@vercel/node` automatically from `api/index.ts`.
+Keep this file minimal or omit it entirely. Vercel automatically detects `api/index.ts` as a Node.js serverless function without any explicit config. Only add a `vercel.json` here if a specific override is needed (e.g. function memory/timeout). The legacy `"version": 2` + `"routes"` pattern works but is unnecessary with current Vercel file-based detection.
 
 ### 7.5 Supabase auth redirect URLs
 
@@ -449,11 +442,7 @@ http://localhost:5173/auth/callback
 http://localhost:5174/auth/callback
 ```
 
-For Vercel preview URL support, also add wildcard patterns:
-```
-https://*-skillcatch.vercel.app/auth/callback
-https://*-skillcatch-admin.vercel.app/auth/callback
-```
+For Vercel preview URL support, add wildcard patterns matching your actual Vercel project slugs (visible in the Vercel dashboard under each project's domain settings). The pattern follows `https://<project-slug>-*.vercel.app/auth/callback`. Set the exact wildcards after creating the Vercel projects — do not guess the slug upfront.
 
 ---
 
