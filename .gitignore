@@ -28,3 +28,12 @@ dist-ssr
 
 # Git worktrees
 .worktrees/
+
+# Per-app builds
+apps/web/dist
+apps/admin/dist
+apps/admin-api/dist
+
+# Per-app env files
+apps/**/.env.local
+apps/**/.env
