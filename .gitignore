@@ -25,14 +25,11 @@ dist-ssr
 
 .env
 .env.*
+!.env.example
+!.env.sample
 
 # Git worktrees
 .worktrees/
-
-# Per-app builds
-apps/web/dist
-apps/admin/dist
-apps/admin-api/dist
 
 # Per-app env files
 apps/**/.env.local
