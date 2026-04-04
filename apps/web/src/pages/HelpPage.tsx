@@ -27,12 +27,11 @@ function SupportForm() {
     if (!message.trim()) return
     setLoading(true)
     try {
-      await supabase.from('help_requests').insert({
-        user_id: session?.user?.id ?? null,
+      await supabase.from('support_messages').insert({
+        sender_user_id: session?.user?.id ?? null,
         email: session?.user?.email ?? null,
-        category,
-        subject: subject.trim(),
-        message: message.trim(),
+        subject: subject.trim() || category,
+        body: message.trim(),
       })
     } catch {
       // table may not exist yet — still show success
