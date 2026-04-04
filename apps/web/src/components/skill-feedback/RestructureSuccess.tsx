@@ -32,26 +32,26 @@ export function RestructureSuccess({
       </div>
 
       <div className="space-y-2 max-w-sm">
-        <h2 className="text-white text-lg font-semibold">Proposal submitted</h2>
-        <p className="text-neutral-400 text-sm">
+        <h2 className="text-gray-900 text-lg font-semibold">Proposal submitted</h2>
+        <p className="text-gray-500 text-sm">
           Your restructure request is pending review. An admin will review it shortly.
         </p>
       </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl px-5 py-4 text-left text-sm space-y-2 min-w-52">
+      <div className="bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 text-left text-sm space-y-2 min-w-52">
         <div className="flex justify-between gap-8">
-          <span className="text-neutral-500">Type</span>
-          <span className="text-white font-mono text-xs">{proposal.type}</span>
+          <span className="text-gray-400">Type</span>
+          <span className="text-gray-800 font-mono text-xs">{proposal.type}</span>
         </div>
         {targetNodeName && (
           <div className="flex justify-between gap-8">
-            <span className="text-neutral-500">Node</span>
-            <span className="text-white text-xs">{targetNodeName}</span>
+            <span className="text-gray-400">Node</span>
+            <span className="text-gray-800 text-xs">{targetNodeName}</span>
           </div>
         )}
         <div className="flex justify-between gap-8">
-          <span className="text-neutral-500">Status</span>
-          <span className="text-amber-400 text-xs">Pending review</span>
+          <span className="text-gray-400">Status</span>
+          <span className="text-amber-500 text-xs font-medium">Pending review</span>
         </div>
       </div>
 
@@ -64,7 +64,7 @@ export function RestructureSuccess({
         </Link>
         <button
           onClick={onReset}
-          className="px-4 py-2 text-neutral-400 hover:text-white text-sm transition-colors"
+          className="px-4 py-2 text-gray-400 hover:text-gray-700 text-sm transition-colors"
         >
           Submit another
         </button>
