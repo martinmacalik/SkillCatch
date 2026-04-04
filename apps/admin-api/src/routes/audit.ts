@@ -17,7 +17,7 @@ auditRouter.get('/', requireAuth, requireAdmin, async (req, res, next) => {
 
     let query = supabaseAdmin
       .from('admin_audit_log')
-      .select('*, actor:profiles(username)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

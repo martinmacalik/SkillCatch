@@ -18,7 +18,7 @@ requestsRouter.get('/', requireAuth, requireAdmin, async (req, res, next) => {
     let query = supabaseAdmin
       .from('node_restructure_requests')
       .select(
-        '*, target_node:skill_nodes(id, name, slug, path), requester:profiles(username)',
+        '*, target_node:skill_nodes(id, name, slug, path)',
         { count: 'exact' }
       )
       .order('created_at', { ascending: false })
@@ -41,7 +41,7 @@ requestsRouter.get('/:id', requireAuth, requireAdmin, async (req, res, next) => 
     const { data, error } = await supabaseAdmin
       .from('node_restructure_requests')
       .select(
-        '*, target_node:skill_nodes(id, name, slug, path), requester:profiles(username)'
+        '*, target_node:skill_nodes(id, name, slug, path)'
       )
       .eq('id', id)
       .single();

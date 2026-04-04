@@ -14,7 +14,7 @@ messagesRouter.get('/', requireAuth, requireAdmin, async (req, res, next) => {
 
     let query = supabaseAdmin
       .from('support_messages')
-      .select('*, sender:profiles(username)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
