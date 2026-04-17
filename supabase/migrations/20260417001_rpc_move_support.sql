@@ -13,7 +13,7 @@ DECLARE
   v_slug  text;
   v_new_id uuid;
 BEGIN
-  FOR v_node IN SELECT value FROM jsonb_array_elements(p_nodes) LOOP
+  FOR v_node IN SELECT elem FROM jsonb_array_elements(p_nodes) AS elem LOOP
     v_slug := lower(regexp_replace(v_node->>'name', '[^a-zA-Z0-9]+', '_', 'g'));
 
     INSERT INTO skill_nodes (name, slug, parent_id, is_leaf)
@@ -41,7 +41,7 @@ DECLARE
   v_node    jsonb;
   v_node_id uuid;
 BEGIN
-  FOR v_node IN SELECT value FROM jsonb_array_elements(p_nodes) LOOP
+  FOR v_node IN SELECT elem FROM jsonb_array_elements(p_nodes) AS elem LOOP
     v_node_id := (v_node->>'id')::uuid;
 
     IF (v_node->>'suggestedName') IS NOT NULL
@@ -71,8 +71,10 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_request record;
+  v_request       record;
   v_proposal_type text;
+  v_notes_raw     text;
+  v_tree          jsonb;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM admin_users WHERE user_id = p_actor_user_id) THEN
     RAISE EXCEPTION 'insufficient_privileges' USING HINT = 'Actor must be a registered admin';
@@ -126,17 +128,12 @@ BEGIN
     );
 
   ELSIF v_proposal_type = 'move' THEN
-    DECLARE
-      v_notes_raw text;
-      v_tree      jsonb;
-    BEGIN
-      v_notes_raw := v_request.proposal->'changes'->>'notes';
-      IF v_notes_raw IS NULL THEN
-        RAISE EXCEPTION 'invalid_proposal_data' USING HINT = 'notes is required for move';
-      END IF;
-      v_tree := v_notes_raw::jsonb;
-      PERFORM _apply_move_tree(v_tree);
-    END;
+    v_notes_raw := v_request.proposal->'changes'->>'notes';
+    IF v_notes_raw IS NULL THEN
+      RAISE EXCEPTION 'invalid_proposal_data' USING HINT = 'notes is required for move';
+    END IF;
+    v_tree := v_notes_raw::jsonb;
+    PERFORM _apply_move_tree(v_tree);
 
   ELSE
     RAISE EXCEPTION 'unsupported_proposal_type' USING HINT = v_proposal_type;

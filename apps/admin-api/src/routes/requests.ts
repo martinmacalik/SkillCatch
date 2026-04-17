@@ -98,6 +98,7 @@ requestsRouter.post('/:id/approve', requireAuth, requireAdmin, async (req, res, 
     );
 
     if (rpcErr) {
+      console.error('[approve_restructure_request] rpc error:', rpcErr);
       if (rpcErr.message?.includes('request_not_pending')) {
         res.status(409).json({ error: 'Request is not pending' });
         return;
@@ -106,7 +107,8 @@ requestsRouter.post('/:id/approve', requireAuth, requireAdmin, async (req, res, 
         res.status(422).json({ error: 'Proposal type not yet supported for auto-approval' });
         return;
       }
-      throw rpcErr;
+      res.status(500).json({ error: 'RPC failed', detail: rpcErr.message });
+      return;
     }
 
     const { data: updated } = await supabaseAdmin
