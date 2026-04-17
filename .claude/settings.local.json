@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(find /Users/23065mm/IdeaProjects/soubory/SkillPath/apps/admin/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) -exec grep -l \"warning\\\\|Warning\" {} \\\\;)",
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")"
     ]
   },
   "enabledPlugins": {

@@ -9,22 +9,29 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_len    int;
-  v_i      int;
-  v_node   jsonb;
-  v_slug   text;
-  v_new_id uuid;
+  v_len         int;
+  v_i           int;
+  v_node        jsonb;
+  v_slug        text;
+  v_new_id      uuid;
+  v_parent_path ltree;
 BEGIN
+  SELECT path INTO v_parent_path FROM skill_nodes WHERE id = p_parent_id;
+
+  -- Parent can no longer be a leaf if it's getting children
+  UPDATE skill_nodes SET is_leaf = false WHERE id = p_parent_id AND is_leaf = true;
+
   v_len := jsonb_array_length(p_nodes);
   FOR v_i IN 0..(v_len - 1) LOOP
     v_node := p_nodes->v_i;
     v_slug := lower(regexp_replace(v_node->>'name', '[^a-zA-Z0-9]+', '_', 'g'));
 
-    INSERT INTO skill_nodes (name, slug, parent_id, is_leaf)
+    INSERT INTO skill_nodes (name, slug, parent_id, path, is_leaf)
     VALUES (
       v_node->>'name',
       v_slug,
       p_parent_id,
+      v_parent_path || v_slug::ltree,
       (v_node->>'isLeaf')::boolean
     )
     RETURNING id INTO v_new_id;

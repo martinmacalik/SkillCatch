@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, X, Search } from 'lucide-react'
+import { Plus, X, Search, Trash2, GitBranch } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import type { SkillNode } from '@/pages/skills/types'
 import type { RestructureProposal } from '@/types/restructure'
@@ -7,11 +7,10 @@ import { serializeProposal } from '@/lib/serializeProposal'
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 
-// A new node suggested only in the right-panel form (not from DB)
 interface SuggestedNode {
   uid: string
   name: string
-  isLeaf: boolean           // false = branch, shows its own child "+"
+  isLeaf: boolean
   children: SuggestedNode[]
 }
 
@@ -20,13 +19,14 @@ interface BuilderNode {
   dbNode: SkillNode
   newName: string
   children: BuilderNode[]
-  suggestions: SuggestedNode[]  // right-panel only; don't appear in left tree
+  suggestions: SuggestedNode[]
+  deleted?: boolean
 }
 
 /* ── Pure tree utils ─────────────────────────────────────────────── */
 
 const mkNode = (db: SkillNode): BuilderNode =>
-  ({ uid: crypto.randomUUID(), dbNode: db, newName: db.name, children: [], suggestions: [] })
+  ({ uid: crypto.randomUUID(), dbNode: db, newName: db.name, children: [], suggestions: [], deleted: false })
 
 const mkSug = (isLeaf: boolean): SuggestedNode =>
   ({ uid: crypto.randomUUID(), name: '', isLeaf, children: [] })
@@ -44,13 +44,16 @@ const updateNameInTree = (roots: BuilderNode[], uid: string, name: string): Buil
 const removeFromTree = (roots: BuilderNode[], uid: string): BuilderNode[] =>
   roots.filter(n => n.uid !== uid).map(n => ({ ...n, children: removeFromTree(n.children, uid) }))
 
+const toggleDeleteInTree = (roots: BuilderNode[], uid: string): BuilderNode[] =>
+  roots.map(n => n.uid === uid
+    ? { ...n, deleted: !n.deleted }
+    : { ...n, children: toggleDeleteInTree(n.children, uid) })
+
 const getAllDbIds = (roots: BuilderNode[]): Set<string> => {
   const s = new Set<string>()
   const walk = (arr: BuilderNode[]) => arr.forEach(n => { s.add(n.dbNode.id); walk(n.children) })
   walk(roots); return s
 }
-
-// ── Suggestion mutations (all operate on the BuilderNode tree) ──────
 
 const addSugToNode = (roots: BuilderNode[], nodeUid: string, sug: SuggestedNode): BuilderNode[] =>
   roots.map(n => n.uid === nodeUid
@@ -77,7 +80,7 @@ const addChildToSug = (roots: BuilderNode[], parentSugUid: string, child: Sugges
   return roots.map(n => ({ ...n, suggestions: inSugs(n.suggestions), children: addChildToSug(n.children, parentSugUid, child) }))
 }
 
-// ── Serialize ────────────────────────────────────────────────────────
+/* ── Serialize ────────────────────────────────────────────────────── */
 
 const serializeSugs = (sugs: SuggestedNode[]): object[] =>
   sugs.map(s => ({ name: s.name, isLeaf: s.isLeaf, children: serializeSugs(s.children) }))
@@ -86,12 +89,17 @@ const serialize = (roots: BuilderNode[]): object[] =>
   roots.map(n => ({
     id: n.dbNode.id,
     originalName: n.dbNode.name,
-    ...(n.newName !== n.dbNode.name && { suggestedName: n.newName }),
-    children: serialize(n.children),
-    ...(n.suggestions.length > 0 && { newNodes: serializeSugs(n.suggestions) }),
+    ...(n.deleted
+      ? { deleted: true }
+      : {
+          ...(n.newName !== n.dbNode.name && { suggestedName: n.newName }),
+          children: serialize(n.children),
+          ...(n.suggestions.length > 0 && { newNodes: serializeSugs(n.suggestions) }),
+        }
+    ),
   }))
 
-/* ── NodeSearchPicker (constrained to DB children) ─────────────────── */
+/* ── NodeSearchPicker ───────────────────────────────────────────────── */
 
 function NodeSearchPicker({ parentDbId, usedIds, onSelect, onClose, searchAll = false }: {
   parentDbId: string | null
@@ -154,9 +162,9 @@ function NodeSearchPicker({ parentDbId, usedIds, onSelect, onClose, searchAll = 
   )
 }
 
-/* ── TreeItem (recursive node card) ─────────────────────────────── */
+/* ── TreeItem ─────────────────────────────────────────────────────── */
 
-function TreeItem({ node, depth, usedIds, openFor, onOpenPicker, onAddChild, onRemove, onClose }: {
+function TreeItem({ node, depth, usedIds, openFor, onOpenPicker, onAddChild, onRemove, onToggleDelete, onClose, isRoot }: {
   node: BuilderNode
   depth: number
   usedIds: Set<string>
@@ -164,43 +172,75 @@ function TreeItem({ node, depth, usedIds, openFor, onOpenPicker, onAddChild, onR
   onOpenPicker: (uid: string) => void
   onAddChild: (parentUid: string, db: SkillNode) => void
   onRemove: (uid: string) => void
+  onToggleDelete: (uid: string) => void
   onClose: () => void
+  isRoot?: boolean
 }) {
   return (
     <div>
       <div className="flex items-center gap-2 py-1" style={{ paddingLeft: `${depth * 24}px` }}>
         {depth > 0 && <div className="h-px w-5 shrink-0 bg-gray-200" />}
-        <div className="flex flex-1 items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
-          <span className="text-sm font-medium text-gray-900">{node.dbNode.name}</span>
-          <button onClick={() => onRemove(node.uid)} className="ml-2 text-gray-300 transition hover:text-red-400">
-            <X className="h-3.5 w-3.5" />
-          </button>
+        <div className={`flex flex-1 items-center justify-between rounded-xl border px-3 py-2 shadow-sm transition-colors ${
+          node.deleted ? 'border-rose-200 bg-rose-50' : 'border-gray-200 bg-white'
+        }`}>
+          <span className={`text-sm font-medium transition-colors ${
+            node.deleted ? 'line-through text-rose-300' : 'text-gray-900'
+          }`}>
+            {node.dbNode.name}
+          </span>
+          <div className="flex items-center gap-1 ml-2">
+            {node.deleted ? (
+              <button onClick={() => onToggleDelete(node.uid)}
+                className="text-xs font-medium text-rose-400 hover:text-indigo-500 transition-colors px-1">
+                undo
+              </button>
+            ) : (
+              <>
+                <button onClick={() => onToggleDelete(node.uid)}
+                  className="text-gray-300 hover:text-rose-400 transition-colors"
+                  title="Propose deletion">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+                {!isRoot && (
+                  <button onClick={() => onRemove(node.uid)}
+                    className="text-gray-300 hover:text-gray-500 transition-colors"
+                    title="Remove from builder">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {node.children.map(c => (
-        <TreeItem key={c.uid} node={c} depth={depth + 1}
-          usedIds={usedIds} openFor={openFor}
-          onOpenPicker={onOpenPicker} onAddChild={onAddChild}
-          onRemove={onRemove} onClose={onClose} />
-      ))}
+      {!node.deleted && (
+        <>
+          {node.children.map(c => (
+            <TreeItem key={c.uid} node={c} depth={depth + 1}
+              usedIds={usedIds} openFor={openFor}
+              onOpenPicker={onOpenPicker} onAddChild={onAddChild}
+              onRemove={onRemove} onToggleDelete={onToggleDelete} onClose={onClose} />
+          ))}
 
-      <div className="relative py-1" style={{ paddingLeft: `${(depth + 1) * 24 + (depth > 0 ? 20 : 0)}px` }}>
-        {openFor === node.uid ? (
-          <NodeSearchPicker parentDbId={node.dbNode.id} usedIds={usedIds}
-            onSelect={db => onAddChild(node.uid, db)} onClose={onClose} />
-        ) : (
-          <button onClick={() => onOpenPicker(node.uid)}
-            className="flex items-center gap-1 rounded-xl border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-400 transition hover:border-indigo-400 hover:text-indigo-500">
-            <Plus className="h-3 w-3" /> Add child
-          </button>
-        )}
-      </div>
+          <div className="relative py-1" style={{ paddingLeft: `${(depth + 1) * 24 + (depth > 0 ? 20 : 0)}px` }}>
+            {openFor === node.uid ? (
+              <NodeSearchPicker parentDbId={node.dbNode.id} usedIds={usedIds}
+                onSelect={db => onAddChild(node.uid, db)} onClose={onClose} />
+            ) : (
+              <button onClick={() => onOpenPicker(node.uid)}
+                className="flex items-center gap-1 rounded-xl border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-400 transition hover:border-indigo-400 hover:text-indigo-500">
+                <Plus className="h-3 w-3" /> Add child
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
 
-/* ── SuggestedSubtree (emerald-styled new nodes in right panel) ────── */
+/* ── SuggestedSubtree ─────────────────────────────────────────────── */
 
 function SuggestedSubtree({ nodes, depth, onRename, onRemove, onAddChild }: {
   nodes: SuggestedNode[]
@@ -247,7 +287,7 @@ function SuggestedSubtree({ nodes, depth, onRename, onRemove, onAddChild }: {
   )
 }
 
-/* ── FormTree (right panel — mirrors tree with rename inputs) ─────── */
+/* ── FormTree ─────────────────────────────────────────────────────── */
 
 function FormTree({ nodes, depth, onRename, onAddSug, onRenameSug, onRemoveSug, onAddSugChild }: {
   nodes: BuilderNode[]
@@ -262,31 +302,42 @@ function FormTree({ nodes, depth, onRename, onAddSug, onRenameSug, onRemoveSug, 
     <>
       {nodes.map(n => (
         <div key={n.uid}>
-          <div className="flex items-center gap-2 py-1" style={{ paddingLeft: `${depth * 20}px` }}>
-            {depth > 0 && <div className="h-px w-3 shrink-0 bg-gray-200" />}
-            <input value={n.newName} onChange={e => onRename(n.uid, e.target.value)}
-              className={`flex-1 rounded-xl border px-3 py-2 text-sm outline-none transition focus:ring-2 ${
-                n.newName !== n.dbNode.name
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-800 focus:border-indigo-500 focus:ring-indigo-100'
-                  : 'border-gray-200 bg-gray-50 text-gray-700 focus:border-indigo-400 focus:ring-indigo-50'
-              }`} />
-          </div>
-          {n.children.length > 0 && (
-            <FormTree nodes={n.children} depth={depth + 1} onRename={onRename}
-              onAddSug={onAddSug} onRenameSug={onRenameSug} onRemoveSug={onRemoveSug} onAddSugChild={onAddSugChild} />
+          {n.deleted ? (
+            <div className="flex items-center gap-2 py-1" style={{ paddingLeft: `${depth * 20}px` }}>
+              {depth > 0 && <div className="h-px w-3 shrink-0 bg-rose-200" />}
+              <div className="flex-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm line-through text-rose-300">
+                {n.dbNode.name}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 py-1" style={{ paddingLeft: `${depth * 20}px` }}>
+                {depth > 0 && <div className="h-px w-3 shrink-0 bg-gray-200" />}
+                <input value={n.newName} onChange={e => onRename(n.uid, e.target.value)}
+                  className={`flex-1 rounded-xl border px-3 py-2 text-sm outline-none transition focus:ring-2 ${
+                    n.newName !== n.dbNode.name
+                      ? 'border-indigo-300 bg-indigo-50 text-indigo-800 focus:border-indigo-500 focus:ring-indigo-100'
+                      : 'border-gray-200 bg-gray-50 text-gray-700 focus:border-indigo-400 focus:ring-indigo-50'
+                  }`} />
+              </div>
+              {n.children.length > 0 && (
+                <FormTree nodes={n.children} depth={depth + 1} onRename={onRename}
+                  onAddSug={onAddSug} onRenameSug={onRenameSug} onRemoveSug={onRemoveSug} onAddSugChild={onAddSugChild} />
+              )}
+              <SuggestedSubtree nodes={n.suggestions} depth={depth + 1}
+                onRename={onRenameSug} onRemove={onRemoveSug} onAddChild={onAddSugChild} />
+              <div className="flex gap-2 py-1" style={{ paddingLeft: `${(depth + 1) * 20}px` }}>
+                <button onClick={() => onAddSug(n.uid, mkSug(true))}
+                  className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
+                  <Plus className="h-3 w-3" /> leaf
+                </button>
+                <button onClick={() => onAddSug(n.uid, mkSug(false))}
+                  className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
+                  <Plus className="h-3 w-3" /> branch
+                </button>
+              </div>
+            </>
           )}
-          <SuggestedSubtree nodes={n.suggestions} depth={depth + 1}
-            onRename={onRenameSug} onRemove={onRemoveSug} onAddChild={onAddSugChild} />
-          <div className="flex gap-2 py-1" style={{ paddingLeft: `${(depth + 1) * 20}px` }}>
-            <button onClick={() => onAddSug(n.uid, mkSug(true))}
-              className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
-              <Plus className="h-3 w-3" /> leaf
-            </button>
-            <button onClick={() => onAddSug(n.uid, mkSug(false))}
-              className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
-              <Plus className="h-3 w-3" /> branch
-            </button>
-          </div>
         </div>
       ))}
     </>
@@ -308,35 +359,32 @@ interface Props {
 export function RestructureForm({ submitting, onSubmit }: Props) {
   const [roots, setRoots] = useState<BuilderNode[]>([])
   const [openFor, setOpenFor] = useState<string | null>(null)
+  const [branchPickerOpen, setBranchPickerOpen] = useState(false)
+  const [loadingBranch, setLoadingBranch] = useState(false)
   const [notes, setNotes] = useState('')
   const usedIds = getAllDbIds(roots)
 
+  const loadBranch = async (parent: SkillNode) => {
+    setBranchPickerOpen(false)
+    setLoadingBranch(true)
+    const { data } = await supabase
+      .from('skill_nodes')
+      .select('*')
+      .eq('parent_id', parent.id)
+      .order('name')
+    setLoadingBranch(false)
+    const parentNode = mkNode(parent)
+    const children = (data ?? []).map(mkNode)
+    setRoots([{ ...parentNode, children }])
+  }
+
   const handleSubmit = () => {
     if (!roots.length) return
-
-    // Determine proposal type
-    let proposalType: RestructureProposal['type'] = 'move'
     const changes: RestructureProposal['changes'] = {}
-
-    const hasRename = roots.some(r => r.newName !== r.dbNode.name)
-    const hasAddChild = roots.some(r => r.suggestions.length > 0)
-
-    if (hasRename) {
-      proposalType = 'rename'
-      const renamed = roots.find(r => r.newName !== r.dbNode.name)
-      if (renamed) changes.new_name = renamed.newName
-    } else if (hasAddChild) {
-      proposalType = 'add_child'
-    }
-
-    // Always include full serialized tree in notes
     changes.notes = JSON.stringify(serialize(roots))
-
-    const proposal = serializeProposal(proposalType, changes)
-
-    const targetNodeId = roots.length > 0 ? roots[0].dbNode.id : undefined
-    const targetNodeName = roots.length > 0 ? roots[0].dbNode.name : undefined
-
+    const proposal = serializeProposal('move', changes)
+    const targetNodeId = roots[0]?.dbNode.id
+    const targetNodeName = roots[0]?.dbNode.name
     onSubmit({ proposal, targetNodeId, targetNodeName, message: notes || undefined })
   }
 
@@ -348,7 +396,8 @@ export function RestructureForm({ submitting, onSubmit }: Props) {
         <div>
           <p className="mb-1 text-sm font-semibold text-gray-800">Build the structure</p>
           <p className="mb-3 text-xs text-gray-400">
-            Pick any root node to start. Each "Add child" only shows valid DB children of that node.
+            Pick a starting node manually, or use <strong className="text-gray-500">Load branch</strong> to
+            auto-populate all children of a branch so you can rename, delete, or add siblings.
           </p>
 
           {roots.map(r => (
@@ -356,33 +405,54 @@ export function RestructureForm({ submitting, onSubmit }: Props) {
               openFor={openFor} onOpenPicker={setOpenFor}
               onAddChild={(uid, db) => { setRoots(t => addChildToTree(t, uid, mkNode(db))); setOpenFor(null) }}
               onRemove={uid => setRoots(t => removeFromTree(t, uid))}
-              onClose={() => setOpenFor(null)} />
+              onToggleDelete={uid => setRoots(t => toggleDeleteInTree(t, uid))}
+              onClose={() => setOpenFor(null)}
+              isRoot={roots.length === 1 && r.uid === roots[0].uid} />
           ))}
 
-          <div className="relative mt-1">
-            {openFor === 'root' ? (
-              roots.length === 0
-                ? <NodeSearchPicker searchAll={true} parentDbId={null} usedIds={usedIds}
-                    onSelect={db => { setRoots(r => [...r, mkNode(db)]); setOpenFor(null) }}
-                    onClose={() => setOpenFor(null)} />
-                : <NodeSearchPicker parentDbId={roots[0].dbNode.parent_id} usedIds={usedIds}
-                    onSelect={db => { setRoots(r => [...r, mkNode(db)]); setOpenFor(null) }}
-                    onClose={() => setOpenFor(null)} />
-            ) : (
-              <button onClick={() => setOpenFor('root')}
-                className="flex items-center gap-1.5 rounded-xl border border-dashed border-indigo-300 px-4 py-2 text-xs font-medium text-indigo-400 transition hover:border-indigo-500 hover:text-indigo-600">
-                <Plus className="h-3.5 w-3.5" />
-                {roots.length === 0 ? 'Pick a starting node' : 'Add root sibling'}
-              </button>
-            )}
+          <div className="mt-1 flex flex-wrap gap-2">
+            {/* Manual node picker */}
+            <div className="relative">
+              {openFor === 'root' ? (
+                roots.length === 0
+                  ? <NodeSearchPicker searchAll={true} parentDbId={null} usedIds={usedIds}
+                      onSelect={db => { setRoots(r => [...r, mkNode(db)]); setOpenFor(null) }}
+                      onClose={() => setOpenFor(null)} />
+                  : <NodeSearchPicker parentDbId={roots[0].dbNode.parent_id} usedIds={usedIds}
+                      onSelect={db => { setRoots(r => [...r, mkNode(db)]); setOpenFor(null) }}
+                      onClose={() => setOpenFor(null)} />
+              ) : (
+                <button onClick={() => setOpenFor('root')}
+                  className="flex items-center gap-1.5 rounded-xl border border-dashed border-indigo-300 px-4 py-2 text-xs font-medium text-indigo-400 transition hover:border-indigo-500 hover:text-indigo-600">
+                  <Plus className="h-3.5 w-3.5" />
+                  {roots.length === 0 ? 'Pick a starting node' : 'Add sibling'}
+                </button>
+              )}
+            </div>
+
+            {/* Branch loader */}
+            <div className="relative">
+              {branchPickerOpen ? (
+                <NodeSearchPicker searchAll={true} parentDbId={null} usedIds={new Set()}
+                  onSelect={loadBranch}
+                  onClose={() => setBranchPickerOpen(false)} />
+              ) : (
+                <button onClick={() => setBranchPickerOpen(true)} disabled={loadingBranch}
+                  className="flex items-center gap-1.5 rounded-xl border border-dashed border-violet-300 px-4 py-2 text-xs font-medium text-violet-400 transition hover:border-violet-500 hover:text-violet-600 disabled:opacity-50">
+                  <GitBranch className="h-3.5 w-3.5" />
+                  {loadingBranch ? 'Loading…' : 'Load branch children'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Right: rename form */}
+        {/* Right: rename / new nodes form */}
         <div>
-          <p className="mb-1 text-sm font-semibold text-gray-800">Suggest new names</p>
+          <p className="mb-1 text-sm font-semibold text-gray-800">Suggest changes</p>
           <p className="mb-3 text-xs text-gray-400">
-            Optionally rename any node. Highlighted inputs have a suggested rename.
+            Rename nodes by editing their name. Add new children with the leaf/branch buttons.
+            Nodes marked for deletion show in red.
           </p>
           {roots.length === 0
             ? <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-gray-200">
