@@ -31,7 +31,8 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: 'Unknown error' }));
-    throw new ApiError(body.error ?? 'Request failed', res.status);
+    const message = body.detail ? `${body.error}: ${body.detail}` : (body.error ?? 'Request failed');
+    throw new ApiError(message, res.status);
   }
 
   return res.json() as Promise<T>;

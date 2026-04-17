@@ -9,11 +9,15 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_node  jsonb;
-  v_slug  text;
+  v_len    int;
+  v_i      int;
+  v_node   jsonb;
+  v_slug   text;
   v_new_id uuid;
 BEGIN
-  FOR v_node IN SELECT elem FROM jsonb_array_elements(p_nodes) AS elem LOOP
+  v_len := jsonb_array_length(p_nodes);
+  FOR v_i IN 0..(v_len - 1) LOOP
+    v_node := p_nodes->v_i;
     v_slug := lower(regexp_replace(v_node->>'name', '[^a-zA-Z0-9]+', '_', 'g'));
 
     INSERT INTO skill_nodes (name, slug, parent_id, is_leaf)
@@ -38,10 +42,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
+  v_len     int;
+  v_i       int;
   v_node    jsonb;
   v_node_id uuid;
 BEGIN
-  FOR v_node IN SELECT elem FROM jsonb_array_elements(p_nodes) AS elem LOOP
+  v_len := jsonb_array_length(p_nodes);
+  FOR v_i IN 0..(v_len - 1) LOOP
+    v_node    := p_nodes->v_i;
     v_node_id := (v_node->>'id')::uuid;
 
     IF (v_node->>'suggestedName') IS NOT NULL
