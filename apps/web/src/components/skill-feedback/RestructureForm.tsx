@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Plus, X, Search, Trash2, GitBranch } from 'lucide-react'
+import { Plus, X, Search, Trash2, GitBranch, RotateCcw } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import type { SkillNode } from '@/pages/skills/types'
 import type { RestructureProposal } from '@/types/restructure'
@@ -59,6 +59,15 @@ const addSugToNode = (roots: BuilderNode[], nodeUid: string, sug: SuggestedNode)
   roots.map(n => n.uid === nodeUid
     ? { ...n, suggestions: [...n.suggestions, sug] }
     : { ...n, children: addSugToNode(n.children, nodeUid, sug) })
+
+// Adds sug to the parent of targetUid (for sibling insertion)
+const addSugToParentOf = (roots: BuilderNode[], targetUid: string, sug: SuggestedNode): BuilderNode[] =>
+  roots.map(n => {
+    if (n.children.some(c => c.uid === targetUid)) {
+      return { ...n, suggestions: [...n.suggestions, sug] }
+    }
+    return { ...n, children: addSugToParentOf(n.children, targetUid, sug) }
+  })
 
 const renameSug = (roots: BuilderNode[], sugUid: string, name: string): BuilderNode[] => {
   const inSugs = (ss: SuggestedNode[]): SuggestedNode[] =>
@@ -162,9 +171,9 @@ function NodeSearchPicker({ parentDbId, usedIds, onSelect, onClose, searchAll = 
   )
 }
 
-/* ── TreeItem ─────────────────────────────────────────────────────── */
+/* ── TreeItem (left panel) ──────────────────────────────────────────── */
 
-function TreeItem({ node, depth, usedIds, openFor, onOpenPicker, onAddChild, onRemove, onToggleDelete, onClose, isRoot }: {
+function TreeItem({ node, depth, usedIds, openFor, onOpenPicker, onAddChild, onRemove, onClose, isRoot }: {
   node: BuilderNode
   depth: number
   usedIds: Set<string>
@@ -172,7 +181,6 @@ function TreeItem({ node, depth, usedIds, openFor, onOpenPicker, onAddChild, onR
   onOpenPicker: (uid: string) => void
   onAddChild: (parentUid: string, db: SkillNode) => void
   onRemove: (uid: string) => void
-  onToggleDelete: (uid: string) => void
   onClose: () => void
   isRoot?: boolean
 }) {
@@ -188,29 +196,13 @@ function TreeItem({ node, depth, usedIds, openFor, onOpenPicker, onAddChild, onR
           }`}>
             {node.dbNode.name}
           </span>
-          <div className="flex items-center gap-1 ml-2">
-            {node.deleted ? (
-              <button onClick={() => onToggleDelete(node.uid)}
-                className="text-xs font-medium text-rose-400 hover:text-indigo-500 transition-colors px-1">
-                undo
-              </button>
-            ) : (
-              <>
-                <button onClick={() => onToggleDelete(node.uid)}
-                  className="text-gray-300 hover:text-rose-400 transition-colors"
-                  title="Propose deletion">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-                {!isRoot && (
-                  <button onClick={() => onRemove(node.uid)}
-                    className="text-gray-300 hover:text-gray-500 transition-colors"
-                    title="Remove from builder">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+          {!isRoot && !node.deleted && (
+            <button onClick={() => onRemove(node.uid)}
+              className="ml-2 text-gray-300 hover:text-gray-500 transition-colors"
+              title="Remove from builder">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -220,7 +212,7 @@ function TreeItem({ node, depth, usedIds, openFor, onOpenPicker, onAddChild, onR
             <TreeItem key={c.uid} node={c} depth={depth + 1}
               usedIds={usedIds} openFor={openFor}
               onOpenPicker={onOpenPicker} onAddChild={onAddChild}
-              onRemove={onRemove} onToggleDelete={onToggleDelete} onClose={onClose} />
+              onRemove={onRemove} onClose={onClose} />
           ))}
 
           <div className="relative py-1" style={{ paddingLeft: `${(depth + 1) * 24 + (depth > 0 ? 20 : 0)}px` }}>
@@ -287,13 +279,15 @@ function SuggestedSubtree({ nodes, depth, onRename, onRemove, onAddChild }: {
   )
 }
 
-/* ── FormTree ─────────────────────────────────────────────────────── */
+/* ── FormTree (right panel) ───────────────────────────────────────── */
 
-function FormTree({ nodes, depth, onRename, onAddSug, onRenameSug, onRemoveSug, onAddSugChild }: {
+function FormTree({ nodes, depth, onRename, onToggleDelete, onAddSug, onAddSiblingOf, onRenameSug, onRemoveSug, onAddSugChild }: {
   nodes: BuilderNode[]
   depth: number
   onRename: (uid: string, name: string) => void
+  onToggleDelete: (uid: string) => void
   onAddSug: (nodeUid: string, sug: SuggestedNode) => void
+  onAddSiblingOf: (nodeUid: string, sug: SuggestedNode) => void
   onRenameSug: (sugUid: string, name: string) => void
   onRemoveSug: (sugUid: string) => void
   onAddSugChild: (parentSugUid: string, child: SuggestedNode) => void
@@ -305,8 +299,14 @@ function FormTree({ nodes, depth, onRename, onAddSug, onRenameSug, onRemoveSug, 
           {n.deleted ? (
             <div className="flex items-center gap-2 py-1" style={{ paddingLeft: `${depth * 20}px` }}>
               {depth > 0 && <div className="h-px w-3 shrink-0 bg-rose-200" />}
-              <div className="flex-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm line-through text-rose-300">
-                {n.dbNode.name}
+              <div className="flex flex-1 items-center gap-2">
+                <div className="flex-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm line-through text-rose-300">
+                  {n.dbNode.name}
+                </div>
+                <button onClick={() => onToggleDelete(n.uid)}
+                  className="shrink-0 text-xs font-medium text-rose-400 hover:text-indigo-500 transition-colors px-1">
+                  undo
+                </button>
               </div>
             </div>
           ) : (
@@ -319,22 +319,41 @@ function FormTree({ nodes, depth, onRename, onAddSug, onRenameSug, onRemoveSug, 
                       ? 'border-indigo-300 bg-indigo-50 text-indigo-800 focus:border-indigo-500 focus:ring-indigo-100'
                       : 'border-gray-200 bg-gray-50 text-gray-700 focus:border-indigo-400 focus:ring-indigo-50'
                   }`} />
+                <button onClick={() => onToggleDelete(n.uid)}
+                  className="shrink-0 text-gray-300 hover:text-rose-400 transition-colors"
+                  title="Propose deletion">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
               {n.children.length > 0 && (
                 <FormTree nodes={n.children} depth={depth + 1} onRename={onRename}
-                  onAddSug={onAddSug} onRenameSug={onRenameSug} onRemoveSug={onRemoveSug} onAddSugChild={onAddSugChild} />
+                  onToggleDelete={onToggleDelete}
+                  onAddSug={onAddSug} onAddSiblingOf={onAddSiblingOf}
+                  onRenameSug={onRenameSug} onRemoveSug={onRemoveSug} onAddSugChild={onAddSugChild} />
               )}
               <SuggestedSubtree nodes={n.suggestions} depth={depth + 1}
                 onRename={onRenameSug} onRemove={onRemoveSug} onAddChild={onAddSugChild} />
-              <div className="flex gap-2 py-1" style={{ paddingLeft: `${(depth + 1) * 20}px` }}>
+              <div className="flex flex-wrap gap-2 py-1" style={{ paddingLeft: `${(depth + 1) * 20}px` }}>
                 <button onClick={() => onAddSug(n.uid, mkSug(true))}
                   className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
-                  <Plus className="h-3 w-3" /> leaf
+                  <Plus className="h-3 w-3" /> child leaf
                 </button>
                 <button onClick={() => onAddSug(n.uid, mkSug(false))}
                   className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
-                  <Plus className="h-3 w-3" /> branch
+                  <Plus className="h-3 w-3" /> child branch
                 </button>
+                {depth > 0 && (
+                  <>
+                    <button onClick={() => onAddSiblingOf(n.uid, mkSug(true))}
+                      className="flex items-center gap-1 rounded-xl border border-dashed border-sky-300 px-2 py-1 text-xs text-sky-400 transition hover:border-sky-500 hover:text-sky-600">
+                      <Plus className="h-3 w-3" /> sibling leaf
+                    </button>
+                    <button onClick={() => onAddSiblingOf(n.uid, mkSug(false))}
+                      className="flex items-center gap-1 rounded-xl border border-dashed border-sky-300 px-2 py-1 text-xs text-sky-400 transition hover:border-sky-500 hover:text-sky-600">
+                      <Plus className="h-3 w-3" /> sibling branch
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -405,54 +424,57 @@ export function RestructureForm({ submitting, onSubmit }: Props) {
               openFor={openFor} onOpenPicker={setOpenFor}
               onAddChild={(uid, db) => { setRoots(t => addChildToTree(t, uid, mkNode(db))); setOpenFor(null) }}
               onRemove={uid => setRoots(t => removeFromTree(t, uid))}
-              onToggleDelete={uid => setRoots(t => toggleDeleteInTree(t, uid))}
               onClose={() => setOpenFor(null)}
               isRoot={roots.length === 1 && r.uid === roots[0].uid} />
           ))}
 
           <div className="mt-1 flex flex-wrap gap-2">
-            {/* Manual node picker */}
-            <div className="relative">
-              {openFor === 'root' ? (
-                roots.length === 0
-                  ? <NodeSearchPicker searchAll={true} parentDbId={null} usedIds={usedIds}
+            {roots.length > 0 ? (
+              <button onClick={() => setRoots([])}
+                className="flex items-center gap-1.5 rounded-xl border border-dashed border-gray-300 px-4 py-2 text-xs font-medium text-gray-400 transition hover:border-rose-300 hover:text-rose-400">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Start again
+              </button>
+            ) : (
+              <>
+                <div className="relative">
+                  {openFor === 'root' ? (
+                    <NodeSearchPicker searchAll={true} parentDbId={null} usedIds={usedIds}
                       onSelect={db => { setRoots(r => [...r, mkNode(db)]); setOpenFor(null) }}
                       onClose={() => setOpenFor(null)} />
-                  : <NodeSearchPicker parentDbId={roots[0].dbNode.parent_id} usedIds={usedIds}
-                      onSelect={db => { setRoots(r => [...r, mkNode(db)]); setOpenFor(null) }}
-                      onClose={() => setOpenFor(null)} />
-              ) : (
-                <button onClick={() => setOpenFor('root')}
-                  className="flex items-center gap-1.5 rounded-xl border border-dashed border-indigo-300 px-4 py-2 text-xs font-medium text-indigo-400 transition hover:border-indigo-500 hover:text-indigo-600">
-                  <Plus className="h-3.5 w-3.5" />
-                  {roots.length === 0 ? 'Pick a starting node' : 'Add sibling'}
-                </button>
-              )}
-            </div>
+                  ) : (
+                    <button onClick={() => setOpenFor('root')}
+                      className="flex items-center gap-1.5 rounded-xl border border-dashed border-indigo-300 px-4 py-2 text-xs font-medium text-indigo-400 transition hover:border-indigo-500 hover:text-indigo-600">
+                      <Plus className="h-3.5 w-3.5" />
+                      Pick a starting node
+                    </button>
+                  )}
+                </div>
 
-            {/* Branch loader */}
-            <div className="relative">
-              {branchPickerOpen ? (
-                <NodeSearchPicker searchAll={true} parentDbId={null} usedIds={new Set()}
-                  onSelect={loadBranch}
-                  onClose={() => setBranchPickerOpen(false)} />
-              ) : (
-                <button onClick={() => setBranchPickerOpen(true)} disabled={loadingBranch}
-                  className="flex items-center gap-1.5 rounded-xl border border-dashed border-violet-300 px-4 py-2 text-xs font-medium text-violet-400 transition hover:border-violet-500 hover:text-violet-600 disabled:opacity-50">
-                  <GitBranch className="h-3.5 w-3.5" />
-                  {loadingBranch ? 'Loading…' : 'Load branch children'}
-                </button>
-              )}
-            </div>
+                <div className="relative">
+                  {branchPickerOpen ? (
+                    <NodeSearchPicker searchAll={true} parentDbId={null} usedIds={new Set()}
+                      onSelect={loadBranch}
+                      onClose={() => setBranchPickerOpen(false)} />
+                  ) : (
+                    <button onClick={() => setBranchPickerOpen(true)} disabled={loadingBranch}
+                      className="flex items-center gap-1.5 rounded-xl border border-dashed border-violet-300 px-4 py-2 text-xs font-medium text-violet-400 transition hover:border-violet-500 hover:text-violet-600 disabled:opacity-50">
+                      <GitBranch className="h-3.5 w-3.5" />
+                      {loadingBranch ? 'Loading…' : 'Load branch children'}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Right: rename / new nodes form */}
+        {/* Right: suggest changes */}
         <div>
           <p className="mb-1 text-sm font-semibold text-gray-800">Suggest changes</p>
           <p className="mb-3 text-xs text-gray-400">
-            Rename nodes by editing their name. Add new children with the leaf/branch buttons.
-            Nodes marked for deletion show in red.
+            Rename nodes by editing their name. Add children or siblings with the buttons.
+            Use the trash icon to propose deletion — cascade-deletes all descendants on approval.
           </p>
           {roots.length === 0
             ? <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-gray-200">
@@ -460,7 +482,9 @@ export function RestructureForm({ submitting, onSubmit }: Props) {
               </div>
             : <FormTree nodes={roots} depth={0}
                 onRename={(uid, name) => setRoots(t => updateNameInTree(t, uid, name))}
+                onToggleDelete={uid => setRoots(t => toggleDeleteInTree(t, uid))}
                 onAddSug={(nodeUid, sug) => setRoots(t => addSugToNode(t, nodeUid, sug))}
+                onAddSiblingOf={(nodeUid, sug) => setRoots(t => addSugToParentOf(t, nodeUid, sug))}
                 onRenameSug={(sugUid, name) => setRoots(t => renameSug(t, sugUid, name))}
                 onRemoveSug={sugUid => setRoots(t => removeSug(t, sugUid))}
                 onAddSugChild={(parentSugUid, child) => setRoots(t => addChildToSug(t, parentSugUid, child))} />
