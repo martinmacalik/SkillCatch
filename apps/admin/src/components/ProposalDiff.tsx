@@ -1,7 +1,11 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabaseClient';
+
 interface TreeNode {
   id: string;
   originalName: string;
   suggestedName?: string;
+  deleted?: boolean;
   children: TreeNode[];
   newNodes?: NewNode[];
 }
@@ -42,6 +46,7 @@ function NewNodeTree({ nodes, depth }: { nodes: NewNode[]; depth: number }) {
 }
 
 function hasAnyChange(node: TreeNode): boolean {
+  if (node.deleted) return true;
   const selfRenamed = !!(node.suggestedName && node.suggestedName !== node.originalName);
   const hasNewNodes = !!(node.newNodes && node.newNodes.length > 0);
   return selfRenamed || hasNewNodes || node.children.some(hasAnyChange);
@@ -50,6 +55,20 @@ function hasAnyChange(node: TreeNode): boolean {
 function TreeDiffNode({ node, depth }: { node: TreeNode; depth: number }) {
   const renamed = node.suggestedName && node.suggestedName !== node.originalName;
   const changed = hasAnyChange(node);
+
+  if (node.deleted) {
+    return (
+      <div
+        className="flex items-center gap-2 py-1 px-2 rounded my-0.5 bg-rose-500/10 border-l-2 border-rose-500/50"
+        style={{ marginLeft: `${depth * 20}px` }}
+      >
+        <span className="text-[10px] uppercase tracking-wide text-rose-500/70 font-semibold shrink-0">
+          delete
+        </span>
+        <span className="text-rose-400 line-through text-xs opacity-80">{node.originalName}</span>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -89,6 +108,18 @@ function TreeDiffNode({ node, depth }: { node: TreeNode; depth: number }) {
   );
 }
 
+function collectDeletedIds(nodes: TreeNode[]): string[] {
+  const ids: string[] = [];
+  for (const node of nodes) {
+    if (node.deleted) {
+      ids.push(node.id);
+    } else {
+      ids.push(...collectDeletedIds(node.children));
+    }
+  }
+  return ids;
+}
+
 export function ProposalDiff({ proposal, message }: Props) {
   const type = proposal.type as string | undefined;
   const changes = proposal.changes as Record<string, unknown> | undefined;
@@ -102,6 +133,30 @@ export function ProposalDiff({ proposal, message }: Props) {
       tree = null;
     }
   }
+
+  const [descendants, setDescendants] = useState<Record<string, { id: string; name: string }[]>>({});
+
+  useEffect(() => {
+    if (!tree) return;
+    const deletedIds = collectDeletedIds(tree);
+    if (deletedIds.length === 0) return;
+
+    Promise.all(
+      deletedIds.map(id =>
+        supabase
+          .rpc('get_node_descendants', { p_node_id: id })
+          .then(({ data }) => ({ id, rows: (data ?? []) as { id: string; name: string }[] }))
+      )
+    ).then(results => {
+      const map: Record<string, { id: string; name: string }[]> = {};
+      for (const { id, rows } of results) map[id] = rows;
+      setDescendants(map);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [changes?.notes]);
+
+  const deletedIds = tree ? collectDeletedIds(tree) : [];
+  const cascadeNames = deletedIds.flatMap(id => (descendants[id] ?? []).map(d => d.name));
 
   return (
     <div className="text-sm space-y-3">
@@ -126,6 +181,20 @@ export function ProposalDiff({ proposal, message }: Props) {
         )}
       </div>
 
+      {/* Cascade delete warning */}
+      {cascadeNames.length > 0 && (
+        <div className="bg-rose-500/10 border border-rose-500/25 rounded-lg p-3">
+          <p className="text-rose-400 text-[10px] uppercase tracking-wide font-semibold mb-1.5">
+            Cascade deletion — also removes {cascadeNames.length} descendant{cascadeNames.length !== 1 ? 's' : ''}
+          </p>
+          <ul className="space-y-0.5">
+            {cascadeNames.map(name => (
+              <li key={name} className="text-rose-300 text-xs line-through opacity-70">{name}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Tree diff or raw fallback */}
       {tree ? (
         <div className="bg-[#0d0d0d] border border-neutral-800 rounded-lg p-3 space-y-0.5">
@@ -141,6 +210,10 @@ export function ProposalDiff({ proposal, message }: Props) {
             <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
               <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500/40 border-l border-emerald-500" />
               new node
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+              <span className="inline-block w-2 h-2 rounded-sm bg-rose-500/40 border-l border-rose-500" />
+              delete
             </span>
             <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
               <span className="text-neutral-600">─</span> unchanged (context)

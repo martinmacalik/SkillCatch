@@ -59,6 +59,27 @@ BEGIN
     v_node    := p_nodes->v_i;
     v_node_id := (v_node->>'id')::uuid;
 
+    IF (v_node->>'deleted') = 'true' THEN
+      DELETE FROM user_skill_attributes
+        WHERE skill_node_id IN (SELECT sn.id FROM skill_nodes sn JOIN skill_nodes p ON sn.path <@ p.path WHERE p.id = v_node_id);
+      DELETE FROM user_skills
+        WHERE skill_node_id IN (SELECT sn.id FROM skill_nodes sn JOIN skill_nodes p ON sn.path <@ p.path WHERE p.id = v_node_id);
+      DELETE FROM teaching_offers
+        WHERE skill_node_id IN (SELECT sn.id FROM skill_nodes sn JOIN skill_nodes p ON sn.path <@ p.path WHERE p.id = v_node_id);
+      DELETE FROM skill_resources
+        WHERE skill_node_id IN (SELECT sn.id FROM skill_nodes sn JOIN skill_nodes p ON sn.path <@ p.path WHERE p.id = v_node_id);
+      DELETE FROM skill_stats
+        WHERE skill_node_id IN (SELECT sn.id FROM skill_nodes sn JOIN skill_nodes p ON sn.path <@ p.path WHERE p.id = v_node_id);
+      DELETE FROM skill_attribute_defs
+        WHERE skill_node_id IN (SELECT sn.id FROM skill_nodes sn JOIN skill_nodes p ON sn.path <@ p.path WHERE p.id = v_node_id);
+      DELETE FROM skill_node_parents
+        WHERE child_node_id IN (SELECT sn.id FROM skill_nodes sn JOIN skill_nodes p ON sn.path <@ p.path WHERE p.id = v_node_id)
+           OR parent_node_id IN (SELECT sn.id FROM skill_nodes sn JOIN skill_nodes p ON sn.path <@ p.path WHERE p.id = v_node_id);
+      DELETE FROM skill_nodes
+        WHERE path <@ (SELECT path FROM skill_nodes WHERE id = v_node_id);
+      CONTINUE;
+    END IF;
+
     IF (v_node->>'suggestedName') IS NOT NULL
        AND (v_node->>'suggestedName') IS DISTINCT FROM (v_node->>'originalName') THEN
       UPDATE skill_nodes
@@ -174,4 +195,14 @@ BEGIN
 
   RETURN jsonb_build_object('success', true, 'request_id', p_request_id);
 END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_node_descendants(p_node_id uuid)
+RETURNS TABLE(id uuid, name text)
+LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT sn2.id, sn2.name
+  FROM skill_nodes sn1
+  JOIN skill_nodes sn2 ON sn2.path <@ sn1.path AND sn2.id != sn1.id
+  WHERE sn1.id = p_node_id
+  ORDER BY sn2.path;
 $$;

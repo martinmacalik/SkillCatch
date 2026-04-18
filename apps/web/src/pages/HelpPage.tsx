@@ -125,11 +125,38 @@ function SkillFeedbackLink() {
           <p className="text-sm text-gray-400">Suggest changes to the skill tree</p>
         </div>
       </div>
-      <p className="mb-5 text-sm leading-relaxed text-gray-500">
+      <p className="mb-4 text-sm leading-relaxed text-gray-500">
         Spotted a wrong branch name, a missing skill, or think a section should be restructured?
         Use the interactive builder to visually suggest changes — you can pick nodes directly from
         the database and propose a new arrangement.
       </p>
+      <div className="mb-5 flex flex-col gap-3">
+        <div>
+          <p className="mb-0.5 text-sm font-semibold text-gray-700">Child vs. sibling</p>
+          <p className="text-sm leading-relaxed text-gray-500">
+            Clicking <span className="font-medium text-gray-700">+ Add child</span> on a node creates
+            a child <em>of</em> that node. To add a sibling instead, use{' '}
+            <span className="font-medium text-gray-700">Load branch children</span> on the parent —
+            that loads all direct children into the builder so you can add new siblings alongside them.
+          </p>
+        </div>
+        <div>
+          <p className="mb-0.5 text-sm font-semibold text-gray-700">Load branch</p>
+          <p className="text-sm leading-relaxed text-gray-500">
+            The <span className="font-medium text-gray-700">Load branch children</span> button (violet,
+            dashed border) searches for a parent branch and pre-populates the builder with all its
+            direct children. You can then bulk-rename, delete, or add siblings in one proposal.
+          </p>
+        </div>
+        <div>
+          <p className="mb-0.5 text-sm font-semibold text-gray-700">Delete</p>
+          <p className="text-sm leading-relaxed text-gray-500">
+            The trash icon on a node marks it for deletion (shown with a red strikethrough). When an
+            admin approves the proposal, that node <em>and all its descendants</em> are permanently
+            removed from the skill tree.
+          </p>
+        </div>
+      </div>
       <button
         onClick={() => navigate('/dashboard/skill-feedback')}
         className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
