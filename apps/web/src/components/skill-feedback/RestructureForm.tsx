@@ -281,13 +281,12 @@ function SuggestedSubtree({ nodes, depth, onRename, onRemove, onAddChild }: {
 
 /* ── FormTree (right panel) ───────────────────────────────────────── */
 
-function FormTree({ nodes, depth, onRename, onToggleDelete, onAddSug, onAddSiblingOf, onRenameSug, onRemoveSug, onAddSugChild }: {
+function FormTree({ nodes, depth, onRename, onToggleDelete, onAddSug, onRenameSug, onRemoveSug, onAddSugChild }: {
   nodes: BuilderNode[]
   depth: number
   onRename: (uid: string, name: string) => void
   onToggleDelete: (uid: string) => void
   onAddSug: (nodeUid: string, sug: SuggestedNode) => void
-  onAddSiblingOf: (nodeUid: string, sug: SuggestedNode) => void
   onRenameSug: (sugUid: string, name: string) => void
   onRemoveSug: (sugUid: string) => void
   onAddSugChild: (parentSugUid: string, child: SuggestedNode) => void
@@ -325,36 +324,38 @@ function FormTree({ nodes, depth, onRename, onToggleDelete, onAddSug, onAddSibli
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
+              {depth === 0 && (
+                <div className="flex flex-wrap gap-2 py-1" style={{ paddingLeft: `${(depth + 1) * 20}px` }}>
+                  <button onClick={() => onAddSug(n.uid, mkSug(true))}
+                    className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
+                    <Plus className="h-3 w-3" /> child leaf
+                  </button>
+                  <button onClick={() => onAddSug(n.uid, mkSug(false))}
+                    className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
+                    <Plus className="h-3 w-3" /> child branch
+                  </button>
+                </div>
+              )}
               {n.children.length > 0 && (
                 <FormTree nodes={n.children} depth={depth + 1} onRename={onRename}
                   onToggleDelete={onToggleDelete}
-                  onAddSug={onAddSug} onAddSiblingOf={onAddSiblingOf}
+                  onAddSug={onAddSug}
                   onRenameSug={onRenameSug} onRemoveSug={onRemoveSug} onAddSugChild={onAddSugChild} />
               )}
               <SuggestedSubtree nodes={n.suggestions} depth={depth + 1}
                 onRename={onRenameSug} onRemove={onRemoveSug} onAddChild={onAddSugChild} />
-              <div className="flex flex-wrap gap-2 py-1" style={{ paddingLeft: `${(depth + 1) * 20}px` }}>
-                <button onClick={() => onAddSug(n.uid, mkSug(true))}
-                  className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
-                  <Plus className="h-3 w-3" /> child leaf
-                </button>
-                <button onClick={() => onAddSug(n.uid, mkSug(false))}
-                  className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
-                  <Plus className="h-3 w-3" /> child branch
-                </button>
-                {depth > 0 && (
-                  <>
-                    <button onClick={() => onAddSiblingOf(n.uid, mkSug(true))}
-                      className="flex items-center gap-1 rounded-xl border border-dashed border-sky-300 px-2 py-1 text-xs text-sky-400 transition hover:border-sky-500 hover:text-sky-600">
-                      <Plus className="h-3 w-3" /> sibling leaf
-                    </button>
-                    <button onClick={() => onAddSiblingOf(n.uid, mkSug(false))}
-                      className="flex items-center gap-1 rounded-xl border border-dashed border-sky-300 px-2 py-1 text-xs text-sky-400 transition hover:border-sky-500 hover:text-sky-600">
-                      <Plus className="h-3 w-3" /> sibling branch
-                    </button>
-                  </>
-                )}
-              </div>
+              {depth > 0 && (
+                <div className="flex flex-wrap gap-2 py-1" style={{ paddingLeft: `${(depth + 1) * 20}px` }}>
+                  <button onClick={() => onAddSug(n.uid, mkSug(true))}
+                    className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
+                    <Plus className="h-3 w-3" /> child leaf
+                  </button>
+                  <button onClick={() => onAddSug(n.uid, mkSug(false))}
+                    className="flex items-center gap-1 rounded-xl border border-dashed border-emerald-300 px-2 py-1 text-xs text-emerald-400 transition hover:border-emerald-500 hover:text-emerald-600">
+                    <Plus className="h-3 w-3" /> child branch
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -484,7 +485,6 @@ export function RestructureForm({ submitting, onSubmit }: Props) {
                 onRename={(uid, name) => setRoots(t => updateNameInTree(t, uid, name))}
                 onToggleDelete={uid => setRoots(t => toggleDeleteInTree(t, uid))}
                 onAddSug={(nodeUid, sug) => setRoots(t => addSugToNode(t, nodeUid, sug))}
-                onAddSiblingOf={(nodeUid, sug) => setRoots(t => addSugToParentOf(t, nodeUid, sug))}
                 onRenameSug={(sugUid, name) => setRoots(t => renameSug(t, sugUid, name))}
                 onRemoveSug={sugUid => setRoots(t => removeSug(t, sugUid))}
                 onAddSugChild={(parentSugUid, child) => setRoots(t => addChildToSug(t, parentSugUid, child))} />
