@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Coins } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
@@ -19,13 +19,13 @@ export function TopBar() {
   const { session } = useAuth()
   const { query, setQuery } = useSearch()
   const isSkills = location.pathname === '/dashboard/skills'
-  const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null } | null>(null)
+  const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; skillcoin_balance: number } | null>(null)
 
   useEffect(() => {
     if (!session?.user) return
     supabase
       .from('profiles')
-      .select('first_name, last_name')
+      .select('first_name, last_name, skillcoin_balance')
       .eq('id', session.user.id)
       .single()
       .then(({ data }) => { if (data) setProfile(data) })
@@ -59,7 +59,14 @@ export function TopBar() {
 
       {/* Profile section */}
       <div className="flex items-center gap-2 sm:gap-3">
-        <div className="hidden h-10 w-10 rounded-full bg-gray-200 sm:block" />
+        <div className="relative hidden sm:block">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+            <Coins className="h-4 w-4 text-amber-600" />
+          </div>
+          <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white leading-none">
+            {profile?.skillcoin_balance ?? 0}
+          </span>
+        </div>
         <div className="hidden h-10 w-10 rounded-full bg-pink-100 sm:block" />
         <div className="h-9 w-9 rounded-full bg-linear-to-br from-pink-300 to-rose-400 sm:h-11 sm:w-11" />
         <div className="ml-1 hidden text-right sm:block">
