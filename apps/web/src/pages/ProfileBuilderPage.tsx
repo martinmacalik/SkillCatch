@@ -43,9 +43,9 @@ export default function ProfileBuilderPage() {
     ]).then(([{ data: cardData }, { data: skillData }]) => {
       setCards((cardData ?? []) as ProfileCard[])
       setUserSkills(
-        (skillData ?? []).map((s: { skill_node_id: string; skill_nodes: { name: string } | null }) => ({
+        (skillData ?? []).map((s: { skill_node_id: string; skill_nodes: { name: string } | { name: string }[] | null }) => ({
           id: s.skill_node_id,
-          name: s.skill_nodes?.name ?? '',
+          name: Array.isArray(s.skill_nodes) ? (s.skill_nodes[0]?.name ?? '') : (s.skill_nodes?.name ?? ''),
         }))
       )
       setLoading(false)

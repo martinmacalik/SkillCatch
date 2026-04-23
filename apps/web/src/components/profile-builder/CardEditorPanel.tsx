@@ -81,7 +81,7 @@ export function CardEditorPanel({ card, userId, onChange, userSkills }: Props) {
           rows={4}
           className="resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
         />
-        {d.photo_url && (
+        {!!d.photo_url && (
           <img src={d.photo_url as string} alt="" className="h-32 w-full rounded-xl object-cover" />
         )}
         <FileUploadButton
@@ -121,7 +121,7 @@ export function CardEditorPanel({ card, userId, onChange, userSkills }: Props) {
   if (card.type === 'photo') {
     return (
       <div className="flex flex-col gap-3">
-        {d.url && (
+        {!!d.url && (
           <img src={d.url as string} alt="" className="h-48 w-full rounded-xl object-cover" />
         )}
         <FileUploadButton
@@ -176,7 +176,7 @@ export function CardEditorPanel({ card, userId, onChange, userSkills }: Props) {
   if (card.type === 'cv') {
     return (
       <div className="flex flex-col gap-3">
-        {d.filename && (
+        {!!d.filename && (
           <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5">
             <span className="flex-1 truncate text-sm text-gray-700">{d.filename as string}</span>
             <a
