@@ -34,3 +34,6 @@ dist-ssr
 # Per-app env files
 apps/**/.env.local
 apps/**/.env
+
+# Brainstorming mockups
+.superpowers/
