@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Search, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../contexts/AuthProvider";
 
@@ -16,6 +17,15 @@ interface SkillNode {
 interface SkillStat {
   skill_node_id: string;
   num_users: number;
+}
+
+interface UserProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  bio: string | null;
 }
 
 /* ── pastel banner palette ── */
@@ -153,8 +163,13 @@ function BranchCard({
 
 export default function DiscoverPage() {
   const { session } = useAuth();
+  const navigate = useNavigate();
 
   /* ── state ── */
+  const [activeTab, setActiveTab] = useState<"skills" | "people">("skills");
+  const [people, setPeople] = useState<UserProfile[]>([]);
+  const [peopleQuery, setPeopleQuery] = useState("");
+  const [peopleLoading, setPeopleLoading] = useState(false);
   const [firstName, setFirstName] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SkillNode[]>([]);
@@ -172,6 +187,25 @@ export default function DiscoverPage() {
   const [breadcrumbs, setBreadcrumbs] = useState<SkillNode[]>([]);
 
   const [loading, setLoading] = useState(true);
+
+  /* ── fetch people tab ── */
+  useEffect(() => {
+    if (activeTab !== "people") return;
+    setPeopleLoading(true);
+    const q = peopleQuery.trim();
+    let query = supabase
+      .from("profiles")
+      .select("id, first_name, last_name, username, avatar_url, bio")
+      .order("first_name")
+      .limit(40);
+    if (q) {
+      query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,username.ilike.%${q}%`);
+    }
+    query.then(({ data }) => {
+      setPeople(data ?? []);
+      setPeopleLoading(false);
+    });
+  }, [activeTab, peopleQuery]);
 
   /* ── fetch profile name ── */
   useEffect(() => {
@@ -425,104 +459,102 @@ export default function DiscoverPage() {
         </div>
       </div>
 
-      {/* ═══ Search results (replaces main content while searching) ═══ */}
-      {isSearching ? (
-        <section>
-          <div className="mb-4 flex items-center gap-3">
-            <button
-              onClick={() => {
-                setIsSearching(false);
-                setSearchQuery("");
-                setSearchResults([]);
-              }}
-              className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <h2 className="text-xl font-bold text-gray-900">
-              Results for "{searchQuery}"
-            </h2>
+      {/* ═══ Tab bar ═══ */}
+      <div className="flex gap-1 w-fit rounded-xl bg-gray-100 p-1">
+        <button
+          onClick={() => setActiveTab("skills")}
+          className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+            activeTab === "skills" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Skills
+        </button>
+        <button
+          onClick={() => setActiveTab("people")}
+          className={`rounded-lg px-4 py-1.5 text-sm font-medium transition ${
+            activeTab === "people" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          People
+        </button>
+      </div>
+
+      {/* ═══ People tab ═══ */}
+      {activeTab === "people" && (
+        <div className="flex flex-col gap-5">
+          <div className="relative max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              value={peopleQuery}
+              onChange={e => setPeopleQuery(e.target.value)}
+              placeholder="Search by name or username"
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
+            />
           </div>
-          {searchResults.length === 0 ? (
-            <p className="py-12 text-center text-sm text-gray-400">
-              No skills found.
-            </p>
+          {peopleLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-purple-600" />
+            </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {searchResults.map((node, i) =>
-                node.is_leaf ? (
-                  <LeafCard
-                    key={node.id}
-                    node={node}
-                    numUsers={statsMap[node.id] ?? 0}
-                    index={i}
-                  />
-                ) : (
-                  <BranchCard
-                    key={node.id}
-                    node={node}
-                    numUsers={statsMap[node.id] ?? 0}
-                    index={i}
-                    onClick={() => openBranch(node)}
-                  />
-                )
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {people.map(person => {
+                const name = [person.first_name, person.last_name].filter(Boolean).join(" ") || person.username || "User";
+                return (
+                  <button
+                    key={person.id}
+                    onClick={() => navigate(`/profile/${person.id}`)}
+                    className="flex items-center gap-3 rounded-2xl bg-white p-4 text-left transition hover:-translate-y-0.5"
+                    style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}
+                  >
+                    {person.avatar_url ? (
+                      <img src={person.avatar_url} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                    ) : (
+                      <div className="h-12 w-12 shrink-0 rounded-full bg-linear-to-br from-pink-300 to-rose-400" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-gray-900">{name}</p>
+                      {person.username && <p className="text-xs text-gray-400">@{person.username}</p>}
+                      {person.bio && <p className="mt-0.5 truncate text-xs text-gray-500">{person.bio}</p>}
+                    </div>
+                  </button>
+                );
+              })}
+              {people.length === 0 && (
+                <p className="col-span-full py-12 text-center text-sm text-gray-400">
+                  {peopleQuery ? "No users found." : "No profiles yet."}
+                </p>
               )}
             </div>
           )}
-        </section>
-      ) : (
-        <>
-          {/* ═══ Recommended for you ═══ */}
-          {recommended.length > 0 && (
-            <ScrollRow label="Recommended for you">
-              {recommended.map((node, i) => (
-                <LeafCard
-                  key={node.id}
-                  node={node}
-                  numUsers={statsMap[node.id] ?? 0}
-                  index={i}
-                />
-              ))}
-            </ScrollRow>
-          )}
+        </div>
+      )}
 
-          {/* ═══ Popular skills ═══ */}
-          {popular.length > 0 && (
-            <ScrollRow label="Popular skills">
-              {popular.map((node, i) => (
-                <LeafCard
-                  key={node.id}
-                  node={node}
-                  numUsers={statsMap[node.id] ?? 0}
-                  index={i}
-                />
-              ))}
-            </ScrollRow>
-          )}
-
-          {/* ═══ All skills (browsable branches) ═══ */}
+      {/* ═══ Skills tab content ═══ */}
+      {activeTab === "skills" && (
+        isSearching ? (
           <section>
             <div className="mb-4 flex items-center gap-3">
-              {currentBranch && (
-                <button
-                  onClick={goBack}
-                  className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setIsSearching(false);
+                  setSearchQuery("");
+                  setSearchResults([]);
+                }}
+                className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
               <h2 className="text-xl font-bold text-gray-900">
-                {allSkillsTitle}
+                Results for "{searchQuery}"
               </h2>
             </div>
-
-            {allSkillsNodes.length === 0 ? (
+            {searchResults.length === 0 ? (
               <p className="py-12 text-center text-sm text-gray-400">
-                No skills in this category yet.
+                No skills found.
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-5 lg:grid-cols-3">
-                {allSkillsNodes.map((node, i) =>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {searchResults.map((node, i) =>
                   node.is_leaf ? (
                     <LeafCard
                       key={node.id}
@@ -543,7 +575,81 @@ export default function DiscoverPage() {
               </div>
             )}
           </section>
-        </>
+        ) : (
+          <>
+            {/* ═══ Recommended for you ═══ */}
+            {recommended.length > 0 && (
+              <ScrollRow label="Recommended for you">
+                {recommended.map((node, i) => (
+                  <LeafCard
+                    key={node.id}
+                    node={node}
+                    numUsers={statsMap[node.id] ?? 0}
+                    index={i}
+                  />
+                ))}
+              </ScrollRow>
+            )}
+
+            {/* ═══ Popular skills ═══ */}
+            {popular.length > 0 && (
+              <ScrollRow label="Popular skills">
+                {popular.map((node, i) => (
+                  <LeafCard
+                    key={node.id}
+                    node={node}
+                    numUsers={statsMap[node.id] ?? 0}
+                    index={i}
+                  />
+                ))}
+              </ScrollRow>
+            )}
+
+            {/* ═══ All skills (browsable branches) ═══ */}
+            <section>
+              <div className="mb-4 flex items-center gap-3">
+                {currentBranch && (
+                  <button
+                    onClick={goBack}
+                    className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-200 hover:text-gray-600"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                )}
+                <h2 className="text-xl font-bold text-gray-900">
+                  {allSkillsTitle}
+                </h2>
+              </div>
+
+              {allSkillsNodes.length === 0 ? (
+                <p className="py-12 text-center text-sm text-gray-400">
+                  No skills in this category yet.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-5 lg:grid-cols-3">
+                  {allSkillsNodes.map((node, i) =>
+                    node.is_leaf ? (
+                      <LeafCard
+                        key={node.id}
+                        node={node}
+                        numUsers={statsMap[node.id] ?? 0}
+                        index={i}
+                      />
+                    ) : (
+                      <BranchCard
+                        key={node.id}
+                        node={node}
+                        numUsers={statsMap[node.id] ?? 0}
+                        index={i}
+                        onClick={() => openBranch(node)}
+                      />
+                    )
+                  )}
+                </div>
+              )}
+            </section>
+          </>
+        )
       )}
     </div>
   );

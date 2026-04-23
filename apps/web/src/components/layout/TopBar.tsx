@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Search, Coins } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { Search, Coins, Settings } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
 import { useSearch } from '@/contexts/SearchContext'
@@ -15,17 +15,23 @@ const searchPlaceholders: Record<string, string> = {
 
 export function TopBar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const placeholder = searchPlaceholders[location.pathname] || 'Search'
   const { session } = useAuth()
   const { query, setQuery } = useSearch()
   const isSkills = location.pathname === '/dashboard/skills'
-  const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; skillcoin_balance: number } | null>(null)
+  const [profile, setProfile] = useState<{
+    first_name: string | null
+    last_name: string | null
+    skillcoin_balance: number
+    avatar_url: string | null
+  } | null>(null)
 
   useEffect(() => {
     if (!session?.user) return
     supabase
       .from('profiles')
-      .select('first_name, last_name, skillcoin_balance')
+      .select('first_name, last_name, skillcoin_balance, avatar_url')
       .eq('id', session.user.id)
       .single()
       .then(({ data }) => { if (data) setProfile(data) })
@@ -52,13 +58,14 @@ export function TopBar() {
         />
       </div>
 
-      {/* Mobile: page title instead of search */}
+      {/* Mobile: page title */}
       <p className="text-base font-semibold text-gray-900 sm:hidden">
         {placeholder}
       </p>
 
       {/* Profile section */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* SkillCoins */}
         <div className="relative hidden sm:block">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
             <Coins className="h-4 w-4 text-amber-600" />
@@ -67,8 +74,29 @@ export function TopBar() {
             {profile?.skillcoin_balance ?? 0}
           </span>
         </div>
-        <div className="hidden h-10 w-10 rounded-full bg-pink-100 sm:block" />
-        <div className="h-9 w-9 rounded-full bg-linear-to-br from-pink-300 to-rose-400 sm:h-11 sm:w-11" />
+
+        {/* Settings */}
+        <button
+          onClick={() => navigate('/dashboard/settings')}
+          className="hidden h-10 w-10 items-center justify-center rounded-full bg-gray-200 transition hover:bg-gray-300 sm:flex"
+          title="Settings"
+        >
+          <Settings className="h-4 w-4 text-gray-600" />
+        </button>
+
+        {/* Avatar — navigates to profile builder */}
+        <button
+          onClick={() => navigate('/dashboard/profile-builder')}
+          className="h-9 w-9 shrink-0 overflow-hidden rounded-full sm:h-11 sm:w-11"
+          title="My profile"
+        >
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-linear-to-br from-pink-300 to-rose-400" />
+          )}
+        </button>
+
         <div className="ml-1 hidden text-right sm:block">
           <p className="text-sm font-semibold text-gray-900">{displayName}</p>
           <p className="text-xs text-gray-400">{email}</p>
