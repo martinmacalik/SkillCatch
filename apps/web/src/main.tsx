@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthProvider'
 import { SearchProvider } from './contexts/SearchContext'
+import { ThemeProvider } from './contexts/ThemeProvider'
 
 // Fonts
 import "@fontsource/montserrat/400.css";
@@ -21,9 +22,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <SearchProvider>
-          <App />
-        </SearchProvider>
+        <ThemeProvider>
+          <SearchProvider>
+            <App />
+          </SearchProvider>
+        </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

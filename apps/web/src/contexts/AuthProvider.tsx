@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
@@ -10,26 +10,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+async function backfillGoogleAvatarIfNeeded(session: Session) {
+  const user = session.user;
+  const providerAvatar =
+    (user.user_metadata?.avatar_url as string | undefined) ??
+    (user.user_metadata?.picture as string | undefined);
+  if (!providerAvatar) return;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", user.id)
+    .single();
+  if (error || !data) return;
+  if (data.avatar_url) return;
+
+  await supabase
+    .from("profiles")
+    .update({ avatar_url: providerAvatar, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const backfilledForUser = useRef<string | null>(null);
 
   useEffect(() => {
-    // 1) Grab existing session from storage
     supabase.auth.getSession().then(({ data }) => {
-      console.log("🔍 AuthProvider: Loading session from storage", data.session);
       setSession(data.session ?? null);
       setLoading(false);
     });
 
-    // 2) Listen for changes (login/logout/refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      console.log("🔄 AuthProvider: Auth state changed", _event, newSession);
-      setSession(newSession);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession);
+      },
+    );
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session?.user) {
+      backfilledForUser.current = null;
+      return;
+    }
+    if (backfilledForUser.current === session.user.id) return;
+    backfilledForUser.current = session.user.id;
+    void backfillGoogleAvatarIfNeeded(session);
+  }, [session]);
 
   return (
     <AuthContext.Provider value={{ session, loading }}>

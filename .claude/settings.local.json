@@ -3,7 +3,27 @@
     "allow": [
       "Bash(find /Users/23065mm/IdeaProjects/soubory/SkillPath/apps/admin/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) -exec grep -l \"warning\\\\|Warning\" {} \\\\;)",
       "Bash(npx supabase *)",
-      "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|tsx|js\\)$\")",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath log --oneline -20)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath pull)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath log --oneline -10 origin/main)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath log --oneline -10)",
+      "Bash(/Users/23065mm/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh --project-dir /Users/23065mm/IdeaProjects/soubory/SkillPath)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath status --short)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath add .gitignore docs/)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath commit -m ' *)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath add docs/superpowers/plans/)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath add supabase/migrations/20260423001_profile_expansion.sql)",
+      "Bash(pnpm exec *)",
+      "Bash(/Users/23065mm/IdeaProjects/soubory/SkillPath/node_modules/.bin/tsc --noEmit)",
+      "Bash(/Users/23065mm/IdeaProjects/soubory/SkillPath/node_modules/.bin/tsc --noEmit -p /Users/23065mm/IdeaProjects/soubory/SkillPath/apps/web/tsconfig.app.json)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath add apps/web/src/lib/usernameRules.ts apps/web/src/lib/countries.ts apps/web/src/lib/languages.ts)",
+      "Bash(git -C /Users/23065mm/IdeaProjects/soubory/SkillPath add apps/web/src/lib/avatarUpload.ts)",
+      "Bash(npm run *)",
+      "Bash(kill %1)",
+      "Bash(/usr/local/bin/npx pnpm *)",
+      "Bash(corepack pnpm *)",
+      "Bash(../../node_modules/.bin/vite)"
     ]
   },
   "enabledPlugins": {
