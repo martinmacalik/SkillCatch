@@ -27,8 +27,10 @@ export default function LearnPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-black">Your learning</h1>
-      <p className="mt-0.5 text-sm text-gray-500">Skills you're working on.</p>
+      <h1 className="text-2xl font-bold tracking-tight text-black">Learn</h1>
+      <p className="mt-0.5 text-sm text-gray-500">
+        Skills currently in your <span className="font-medium text-blue-700">Learning</span> column.
+      </p>
 
       <div className="mt-8 flex flex-col gap-3">
         {items.map(item => {
@@ -42,22 +44,17 @@ export default function LearnPage() {
             >
               <div>
                 <p className="font-semibold text-black">{node.name}</p>
-                <p className="mt-0.5 text-xs text-gray-400">
-                  {item.status} · {item.progress_percent}%
-                </p>
+                <p className="mt-0.5 text-xs text-gray-400">Learning</p>
               </div>
-              <div className="h-2 w-32 overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className="h-full bg-black transition-all"
-                  style={{ width: `${item.progress_percent}%` }}
-                />
-              </div>
+              <span className="rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-500 group-hover:border-black group-hover:text-black">
+                Open Learn page
+              </span>
             </Link>
           )
         })}
         {items.length === 0 && (
           <p className="rounded-2xl border border-dashed border-gray-200 p-12 text-center text-sm text-gray-400">
-            You haven't added any skills to learn yet. Browse skills in Discover and tap "Add to Learn".
+            No skills in your Learning column yet. Move a skill into "Learning" from the Skills page, or tap "Add to Learn" on a skill page.
           </p>
         )}
       </div>

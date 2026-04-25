@@ -25,11 +25,12 @@ export interface LearningBlock {
   sort_order: number
 }
 
+export type UserSkillStatus = 'watchlist' | 'learning' | 'learned' | 'dormant'
+
 export interface UserLearningSkill {
   skill_node_id: string
-  status: 'learning' | 'paused' | 'completed'
-  progress_percent: number
-  updated_at: string
+  status: UserSkillStatus
+  created_at: string
   skill_nodes: { name: string; slug: string } | { name: string; slug: string }[] | null
 }
 
@@ -66,30 +67,50 @@ export async function getSkillLearnPageBySlug(slug: string) {
 }
 
 // ── PERSONAL: dashboard ──
+// "Learning" is the kanban column on user_skills.status — same source of truth
+// as the SkillsPage. Don't duplicate this concept anywhere else.
 export async function getUserLearningSkills(): Promise<UserLearningSkill[]> {
   const { data, error } = await supabase
-    .from('user_learning_skills')
-    .select('skill_node_id, status, progress_percent, updated_at, skill_nodes(name, slug)')
-    .order('updated_at', { ascending: false })
+    .from('user_skills')
+    .select('skill_node_id, status, created_at, skill_nodes(name, slug)')
+    .eq('status', 'learning')
+    .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as UserLearningSkill[]
 }
 
+// Sets a skill's status to 'learning'. Inserts the user_skills row if missing
+// (which also adds it to the user's library — the expected behavior when
+// adding a skill from a skill page they don't yet have).
 export async function addSkillToLearn(skillNodeId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('not authenticated')
   const { error } = await supabase
-    .from('user_learning_skills')
-    .upsert({ user_id: user.id, skill_node_id: skillNodeId, status: 'learning' })
+    .from('user_skills')
+    .upsert(
+      { user_id: user.id, skill_node_id: skillNodeId, status: 'learning' },
+      { onConflict: 'user_id,skill_node_id' },
+    )
   if (error) throw error
 }
 
+// Doesn't delete — moves the skill back to 'watchlist' so it stays in the user's library.
 export async function removeSkillFromLearn(skillNodeId: string) {
   const { error } = await supabase
-    .from('user_learning_skills')
-    .delete()
+    .from('user_skills')
+    .update({ status: 'watchlist' })
     .eq('skill_node_id', skillNodeId)
   if (error) throw error
+}
+
+// Whether the skill is currently in the user's 'learning' column.
+export async function isSkillInLearn(skillNodeId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('user_skills')
+    .select('status')
+    .eq('skill_node_id', skillNodeId)
+    .maybeSingle()
+  return data?.status === 'learning'
 }
 
 // ── PERSONAL NOTES ──

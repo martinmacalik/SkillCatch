@@ -1,19 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Plus, Check } from 'lucide-react'
-import { supabase } from '@/lib/supabaseClient'
-import { addSkillToLearn, removeSkillFromLearn } from '@/lib/learn-queries'
+import { addSkillToLearn, removeSkillFromLearn, isSkillInLearn } from '@/lib/learn-queries'
 
 export function AddToLearnButton({ skillNodeId }: { skillNodeId: string }) {
   const [added, setAdded] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    supabase
-      .from('user_learning_skills')
-      .select('skill_node_id')
-      .eq('skill_node_id', skillNodeId)
-      .maybeSingle()
-      .then(({ data }) => setAdded(!!data))
+    isSkillInLearn(skillNodeId).then(setAdded)
   }, [skillNodeId])
 
   if (added === null) return null
