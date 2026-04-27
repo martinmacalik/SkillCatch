@@ -30,16 +30,25 @@ export type UserSkillStatus = 'watchlist' | 'learning' | 'learned' | 'dormant'
 export interface UserLearningSkill {
   skill_node_id: string
   status: UserSkillStatus
+  pinned: boolean
+  last_opened_at: string | null
   created_at: string
   skill_nodes: { name: string; slug: string } | { name: string; slug: string }[] | null
 }
 
-// ── GLOBAL: page lookup by slug ──
-export async function getSkillLearnPageBySlug(slug: string) {
+// ── GLOBAL: page lookup by skill id ──
+// Routes use UUIDs because skill_nodes.slug is not unique — multiple skills
+// can share the same slug (e.g. "Biathlon" appearing under different parents).
+export interface LearnPageData {
+  node: SkillNode
+  page: LearningPage | null
+  blocks: LearningBlock[]
+}
+export async function getSkillLearnPageById(skillId: string): Promise<LearnPageData | null> {
   const { data: node } = await supabase
     .from('skill_nodes')
     .select('id, name, slug, is_leaf')
-    .eq('slug', slug)
+    .eq('id', skillId)
     .maybeSingle()
   if (!node) return null
 
@@ -50,7 +59,7 @@ export async function getSkillLearnPageBySlug(slug: string) {
     .maybeSingle()
 
   if (!page) {
-    return { node: node as SkillNode, page: null, blocks: [] as LearningBlock[] }
+    return { node: node as SkillNode, page: null, blocks: [] }
   }
 
   const { data: blocks } = await supabase
@@ -69,14 +78,40 @@ export async function getSkillLearnPageBySlug(slug: string) {
 // ── PERSONAL: dashboard ──
 // "Learning" is the kanban column on user_skills.status — same source of truth
 // as the SkillsPage. Don't duplicate this concept anywhere else.
+//
+// Ordering: pinned first, then most recently opened, then never-opened by created_at.
+// Matches the composite index user_skills_user_recent_idx.
 export async function getUserLearningSkills(): Promise<UserLearningSkill[]> {
   const { data, error } = await supabase
     .from('user_skills')
-    .select('skill_node_id, status, created_at, skill_nodes(name, slug)')
+    .select('skill_node_id, status, pinned, last_opened_at, created_at, skill_nodes(name, slug)')
     .eq('status', 'learning')
+    .order('pinned', { ascending: false })
+    .order('last_opened_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as UserLearningSkill[]
+}
+
+// Returns the skill the Learn page should default to (top of the ordering).
+// Null if the user has nothing in their Learning column.
+export async function getDefaultLearnSkillId(): Promise<string | null> {
+  const { data } = await supabase
+    .from('user_skills')
+    .select('skill_node_id')
+    .eq('status', 'learning')
+    .order('pinned', { ascending: false })
+    .order('last_opened_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.skill_node_id ?? null
+}
+
+// Stamp now() onto user_skills.last_opened_at for the current user.
+// Fire-and-forget; harmless if the skill isn't in the user's library.
+export async function touchSkillLastOpened(skillNodeId: string): Promise<void> {
+  await supabase.rpc('touch_skill_last_opened', { p_skill_node_id: skillNodeId })
 }
 
 // Sets a skill's status to 'learning'. Inserts the user_skills row if missing
@@ -217,4 +252,47 @@ export async function reorderLearningBlocks(pageId: string, ids: string[]) {
 export async function getMyRoles(): Promise<string[]> {
   const { data } = await supabase.from('user_roles').select('role')
   return (data ?? []).map(r => r.role as string)
+}
+
+// ── SUGGESTIONS (non-editor edit flow) ──
+//
+// Suggestions are submitted by users without editor permissions. The proposed
+// list represents the FULL final state of the page after approval. Each entry:
+//   { id?, type, content, sort_order }
+//   - id present = keep existing block (possibly with edits)
+//   - id absent  = create new
+//   - any current block id not in the list = delete
+export interface ProposedBlock {
+  id?: string
+  type: BlockType
+  content: Record<string, unknown>
+  sort_order: number
+}
+
+export async function submitLearningSuggestion(
+  skillNodeId: string,
+  proposedBlocks: ProposedBlock[],
+  message: string | null,
+): Promise<string> {
+  const { data, error } = await supabase.rpc('submit_learning_suggestion', {
+    p_skill_node_id: skillNodeId,
+    p_proposed_blocks: proposedBlocks,
+    p_message: message,
+  })
+  if (error) throw error
+  return data as string
+}
+
+// Returns the user's pending suggestion for this skill (if any) — used to
+// show the "awaiting review" pill on the Learn page.
+export async function getMyPendingSuggestion(skillNodeId: string) {
+  const { data } = await supabase
+    .from('skill_learning_suggestions')
+    .select('id, created_at, message')
+    .eq('skill_node_id', skillNodeId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data
 }

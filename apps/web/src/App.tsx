@@ -16,8 +16,6 @@ import HelpPage from './pages/HelpPage'
 import SkillFeedbackPage from './pages/SkillFeedbackPage'
 import ProfileBuilderPage from './pages/ProfileBuilderPage'
 import PublicProfilePage from './pages/PublicProfilePage'
-import SkillLearnPage from './pages/SkillLearnPage'
-import SkillLearnEditorPage from './pages/SkillLearnEditorPage'
 
 export default function App() {
   return (
@@ -37,6 +35,7 @@ export default function App() {
         <Route path="chats" element={<ChatsPage />} />
         <Route path="skills" element={<SkillsPage />} />
         <Route path="learn" element={<LearnPage />} />
+        <Route path="learn/:skillId" element={<LearnPage />} />
         <Route path="discover" element={<DiscoverPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="help" element={<HelpPage />} />
@@ -56,22 +55,6 @@ export default function App() {
         element={
           <ProtectedRoute>
             <PublicProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/skills/:skillSlug/learn"
-        element={
-          <ProtectedRoute>
-            <SkillLearnPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/skills/:skillSlug/learn/edit"
-        element={
-          <ProtectedRoute>
-            <SkillLearnEditorPage />
           </ProtectedRoute>
         }
       />
