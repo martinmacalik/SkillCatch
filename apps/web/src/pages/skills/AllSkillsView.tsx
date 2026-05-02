@@ -9,6 +9,7 @@ import {
   ListFilter,
   ChevronRight,
   Pin,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../contexts/AuthProvider";
@@ -70,6 +71,7 @@ export default function AllSkillsView({
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [editingSkill, setEditingSkill] = useState<{ node: SkillNode; index: number } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchSkills = useCallback(async () => {
     if (!session?.user) return;
@@ -212,6 +214,52 @@ export default function AllSkillsView({
     );
   }, [session]);
 
+  // Removes skill(s) from the user's profile. Deletes both user_skills and the
+  // associated user_skill_attributes (no FK cascade, so attributes would
+  // otherwise be orphaned). Used for both single delete (modal) and bulk delete.
+  const removeSkillsFromProfile = useCallback(async (skillNodeIds: string[]) => {
+    if (!session?.user || skillNodeIds.length === 0) return;
+    await supabase
+      .from("user_skill_attributes")
+      .delete()
+      .eq("user_id", session.user.id)
+      .in("skill_node_id", skillNodeIds);
+    await supabase
+      .from("user_skills")
+      .delete()
+      .eq("user_id", session.user.id)
+      .in("skill_node_id", skillNodeIds);
+    setSkills((prev) => prev.filter((s) => !skillNodeIds.includes(s.skill_node_id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      skillNodeIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, [session]);
+
+  const handleDeleteCurrentSkill = useCallback(async () => {
+    if (!editingSkill) return;
+    if (!confirm(`Remove "${editingSkill.node.name}" from your profile?`)) return;
+    await removeSkillsFromProfile([editingSkill.node.id]);
+    setEditingSkill(null);
+  }, [editingSkill, removeSkillsFromProfile]);
+
+  const handleBulkRemove = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Remove ${ids.length} skill${ids.length === 1 ? "" : "s"} from your profile?`)) return;
+    await removeSkillsFromProfile(ids);
+  }, [selectedIds, removeSkillsFromProfile]);
+
+  const toggleSelect = useCallback((skillNodeId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(skillNodeId)) next.delete(skillNodeId);
+      else next.add(skillNodeId);
+      return next;
+    });
+  }, []);
+
   // ── Drag-and-drop ─────────────────────────────────────────────
   const dragRef = useRef<{
     skill: EnrichedSkill;
@@ -313,6 +361,7 @@ export default function AllSkillsView({
         userId={session.user.id}
         onSave={() => { setEditingSkill(null); fetchSkills(); }}
         onCancel={() => setEditingSkill(null)}
+        onDelete={handleDeleteCurrentSkill}
       />
     )}
     {dragSkill && ghostPos && (
@@ -400,6 +449,13 @@ export default function AllSkillsView({
           onCategoryChange={setActiveCategory}
           onEdit={openEdit}
           onTogglePin={handleTogglePin}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onToggleSelectAll={() => {
+            const allSelected = filtered.length > 0 && filtered.every((s) => selectedIds.has(s.skill_node_id));
+            setSelectedIds(allSelected ? new Set() : new Set(filtered.map((s) => s.skill_node_id)));
+          }}
+          onBulkRemove={handleBulkRemove}
         />
       ) : (
         <KanbanView
@@ -427,6 +483,10 @@ function ListView({
   onCategoryChange,
   onEdit,
   onTogglePin,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
+  onBulkRemove,
 }: {
   skills: EnrichedSkill[];
   categories: { id: string; name: string }[];
@@ -434,7 +494,17 @@ function ListView({
   onCategoryChange: (id: string) => void;
   onEdit: (node: SkillNode, index: number) => void;
   onTogglePin: (skillNodeId: string, currentPinned: boolean) => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (skillNodeId: string) => void;
+  onToggleSelectAll: () => void;
+  onBulkRemove: () => void;
 }) {
+  const visibleSelectedCount = skills.reduce(
+    (n, s) => (selectedIds.has(s.skill_node_id) ? n + 1 : n),
+    0,
+  );
+  const allSelected = skills.length > 0 && visibleSelectedCount === skills.length;
+  const someSelected = visibleSelectedCount > 0 && !allSelected;
   return (
     <div className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-white min-h-0">
       {/* Top bar */}
@@ -463,13 +533,30 @@ function ListView({
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Filter
           </button>
+          {selectedIds.size > 0 && (
+            <button
+              onClick={onBulkRemove}
+              className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-rose-700"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Remove {selectedIds.size} skill{selectedIds.size === 1 ? "" : "s"}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Table header */}
       <div className="grid shrink-0 grid-cols-[2.5rem_1fr_8rem_8rem_8rem_8rem_7rem_2.5rem] border-b border-gray-100 px-6 py-3">
         <div>
-          <input type="checkbox" className="cursor-pointer rounded border-gray-300" />
+          {/* Select-all: indeterminate when some-but-not-all rows are selected.
+              indeterminate is a JS-only property (no HTML attribute), set via ref. */}
+          <input
+            type="checkbox"
+            checked={allSelected}
+            ref={(el) => { if (el) el.indeterminate = someSelected; }}
+            onChange={onToggleSelectAll}
+            className="cursor-pointer rounded border-gray-300"
+          />
         </div>
         {["Skill", "Learned for", "Started", "Parent", "Category", "Status"].map((h) => (
           <div key={h} className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -492,10 +579,18 @@ function ListView({
           skills.map((skill, i) => (
             <div
               key={skill.skill_node_id}
-              className="grid cursor-pointer grid-cols-[2.5rem_1fr_8rem_8rem_8rem_8rem_7rem_2.5rem] items-center border-b border-gray-50 px-6 py-3.5 transition hover:bg-gray-50"
+              className={`grid cursor-pointer grid-cols-[2.5rem_1fr_8rem_8rem_8rem_8rem_7rem_2.5rem] items-center border-b border-gray-50 px-6 py-3.5 transition ${
+                selectedIds.has(skill.skill_node_id) ? "bg-rose-50/40" : "hover:bg-gray-50"
+              }`}
             >
               <div>
-                <input type="checkbox" className="cursor-pointer rounded border-gray-300" />
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(skill.skill_node_id)}
+                  onChange={() => onToggleSelect(skill.skill_node_id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="cursor-pointer rounded border-gray-300"
+                />
               </div>
               <div className="flex items-center gap-3" onClick={() => onEdit(skill.node, i)}>
                 {skill.node.image_url ? (

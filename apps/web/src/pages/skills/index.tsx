@@ -153,6 +153,22 @@ export default function SkillsPage() {
         userId={session.user.id}
         onSave={() => setEditingNode(null)}
         onCancel={() => setEditingNode(null)}
+        onDelete={async () => {
+          if (!session?.user || !editingNode) return;
+          if (!confirm(`Remove "${editingNode.node.name}" from your profile?`)) return;
+          await supabase
+            .from("user_skill_attributes")
+            .delete()
+            .eq("user_id", session.user.id)
+            .eq("skill_node_id", editingNode.node.id);
+          await supabase
+            .from("user_skills")
+            .delete()
+            .eq("user_id", session.user.id)
+            .eq("skill_node_id", editingNode.node.id);
+          setEditingNode(null);
+          fetchRecent();
+        }}
       />
     )}
     <div

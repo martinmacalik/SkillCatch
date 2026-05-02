@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Pencil } from "lucide-react";
+import { X, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { colorForIndex } from "./types";
 import type { SkillNode, SkillAttributeDef } from "./types";
@@ -25,6 +25,7 @@ interface EditSkillModalProps {
   userId: string;
   onSave: () => void;
   onCancel: () => void;
+  onDelete: () => void;
 }
 
 export default function EditSkillModal({
@@ -33,6 +34,7 @@ export default function EditSkillModal({
   userId,
   onSave,
   onCancel,
+  onDelete,
 }: EditSkillModalProps) {
   const [mode, setMode] = useState<Mode>("view");
   const [defs, setDefs] = useState<SkillAttributeDef[]>([]);
@@ -138,20 +140,31 @@ export default function EditSkillModal({
       onClick={(e) => e.target === e.currentTarget && onCancel()}
     >
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
-        {/* Top buttons: Edit (pencil) + Close */}
-        <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+        {/* Top buttons: Edit (pencil) + Remove (trash) + Close.
+            Default state has no background — circle appears on hover only. */}
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-1">
           {mode === "view" && (
-            <button
-              onClick={() => setMode("edit")}
-              className="cursor-pointer rounded-full bg-black/30 p-1.5 text-white transition hover:bg-black/50"
-              title="Edit details"
-            >
-              <Pencil className="h-4 w-4" />
-            </button>
+            <>
+              <button
+                onClick={() => setMode("edit")}
+                className="cursor-pointer rounded-full p-1.5 text-white transition hover:bg-black/30"
+                title="Edit details"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onDelete}
+                className="cursor-pointer rounded-full p-1.5 text-white transition hover:bg-rose-600/70"
+                title="Remove from profile"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </>
           )}
           <button
             onClick={onCancel}
-            className="cursor-pointer rounded-full bg-black/30 p-1.5 text-white transition hover:bg-black/50"
+            className="cursor-pointer rounded-full p-1.5 text-white transition hover:bg-black/30"
+            title="Close"
           >
             <X className="h-4 w-4" />
           </button>
