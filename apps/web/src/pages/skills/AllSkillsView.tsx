@@ -63,12 +63,19 @@ export default function AllSkillsView({
   onBack,
 }: {
   onGoToAdd: () => void;
-  onBack: () => void;
+  onBack?: () => void;
 }) {
   const { session } = useAuth();
   const [skills, setSkills] = useState<EnrichedSkill[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem("skills-view-mode");
+    return saved === "list" || saved === "kanban" ? saved : "list";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("skills-view-mode", viewMode);
+  }, [viewMode]);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [editingSkill, setEditingSkill] = useState<{ node: SkillNode; index: number } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -391,12 +398,14 @@ export default function AllSkillsView({
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-white hover:text-gray-700"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="rounded-lg p-1.5 text-gray-400 transition hover:bg-white hover:text-gray-700"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Skills Overview</h1>
             <p className="mt-0.5 text-base text-gray-500">

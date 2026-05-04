@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowUpRight, Plus, Pin } from 'lucide-react'
+import { ArrowUpRight, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthProvider'
 import { colorForIndex } from './skills/types'
@@ -9,25 +9,6 @@ import EditSkillModal from './skills/EditSkillModal'
 
 /* ── helpers ── */
 
-const progressData = [
-  { day: 'M', height: 55, color: '#8B5CF6', striped: false },
-  { day: 'T', height: 68, color: '#7C3AED', striped: false },
-  { day: 'W', height: 78, color: '#EC4899', striped: false },
-  { day: 'T', height: 48, color: '#A78BFA', striped: false },
-  { day: 'F', height: 42, color: '#C4B5FD', striped: true },
-  { day: 'S', height: 38, color: '#C4B5FD', striped: true },
-  { day: 'S', height: 28, color: '#C4B5FD', striped: true },
-]
-
-const chatContacts = [
-  { name: 'Peter Vivaldi', color: '#F9A8D4', time: '14:52', message: 'Good Job!' },
-  { name: 'John Beaver', color: '#86EFAC', time: '14:52', message: 'Good Job!' },
-  { name: 'Anna Gray', color: '#BAE6FD', time: '14:52', message: 'Good Job!' },
-  { name: 'John Steven', color: '#C4B5FD', time: '14:52', message: 'Good Job!' },
-]
-
-const stripePattern =
-  'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.45) 3px, rgba(255,255,255,0.45) 6px)'
 
 function calcStreak(dates: string[]): number {
   if (!dates.length) return 0
@@ -177,19 +158,26 @@ export default function DashboardPage() {
         {/* ── Stats Row ── */}
         <div className="grid shrink-0 grid-cols-4 gap-2 sm:gap-3 lg:gap-5">
           {/* Total Skills – accent card */}
-          <div className="flex flex-col justify-between rounded-2xl bg-gradient-to-br from-indigo-900 to-fuchsia-700 p-3 text-white sm:p-4 lg:p-6">
+          <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl bg-linear-to-br from-violet-950 to-fuchsia-700 p-3 text-white sm:p-4 lg:p-6">
             <div className="flex items-start justify-between">
-              <p className="text-[11px] font-medium text-purple-100 sm:text-sm">Total</p>
-              <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-white/20 sm:flex lg:h-9 lg:w-9">
-                <ArrowUpRight className="h-4 w-4 lg:h-5 lg:w-5" />
-              </span>
+              <p className="text-[11px] font-medium text-white sm:text-sm">Total Skills</p>
+              <button
+                onClick={() => navigate('/dashboard/skills')}
+                className="hidden h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white transition hover:bg-gray-100 sm:flex lg:h-9 lg:w-9"
+              >
+                <ArrowUpRight className="h-4 w-4 text-gray-900 lg:h-5 lg:w-5" />
+              </button>
             </div>
-            <p className="my-1 text-3xl font-medium leading-none sm:my-2 sm:text-4xl lg:text-6xl">{totalSkills}</p>
-            <p className="hidden text-xs text-purple-200 sm:block sm:text-sm">Skills tracked</p>
+            <div className="relative my-1 sm:my-2">
+              {/* Pink glow behind the number */}
+              <div className="absolute -left-2 top-1/2 h-5 w-10 -translate-y-1/2 rounded-full bg-fuchsia-400 opacity-60 blur-2xl sm:h-14 sm:w-20 lg:h-20 lg:w-28" />
+              <p className="relative text-3xl font-medium leading-none sm:text-4xl lg:text-6xl">{totalSkills}</p>
+            </div>
+            <p className="hidden text-xs text-fuchsia-400 sm:block sm:text-sm">Skills tracked</p>
           </div>
 
-          <StatCard shortLabel="Streak" title="Day Streak" value={String(dayStreak)} badgeLabel="Consecutive login days" />
-          <StatCard shortLabel="Learning" title="Skills Learning" value={String(learningCount)} badgeLabel="Currently in progress" />
+          <StatCard shortLabel="Streak" title="Day Streak" value={String(dayStreak)} badgeLabel="Consecutive login days" onArrowClick={() => navigate('/dashboard/learn')} />
+          <StatCard shortLabel="Learning" title="Skills Learning" value={String(learningCount)} badgeLabel="Currently in progress" onArrowClick={() => navigate('/dashboard/learn')} />
           <StatCard shortLabel="Chats" title="New Chats" value="0" badgeLabel="Coming soon" />
         </div>
 
@@ -197,21 +185,12 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:flex-1 2xl:min-h-155 2xl:grid-cols-6 2xl:gap-5 2xl:grid-rows-[4fr_1fr_1fr_4fr]">
           {/* Learning Progress: tablet col1 row2 | desktop rows 1-2, cols 1-3 */}
           <div className="flex min-h-48 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-2 2xl:col-span-3 2xl:col-start-1 2xl:row-start-1 2xl:row-end-3 2xl:min-h-0">
-            <h3 className="text-base font-semibold text-gray-900">Learning Progress</h3>
-            <div className="flex flex-1 items-end justify-around gap-3 px-2 pb-4">
-              {progressData.map((bar, i) => (
-                <div key={i} className="flex flex-col items-center gap-2">
-                  <div
-                    className="w-8 rounded-t-full transition-all 2xl:w-16"
-                    style={{
-                      height: `${bar.height}%`,
-                      backgroundColor: bar.color,
-                      backgroundImage: bar.striped ? stripePattern : 'none',
-                    }}
-                  />
-                  <span className="text-sm font-semibold text-purple-500">{bar.day}</span>
-                </div>
-              ))}
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-semibold text-gray-900">Learning Progress</h3>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">Coming soon</span>
+            </div>
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-sm text-gray-400">No data yet</p>
             </div>
           </div>
 
@@ -253,32 +232,17 @@ export default function DashboardPage() {
           {/* Chats: tablet col1 row1 | desktop rows 3-4, cols 1-2 */}
           <div className="flex min-h-48 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-1 2xl:col-span-2 2xl:col-start-1 2xl:row-start-3 2xl:row-end-5 2xl:min-h-0">
             <div className="flex shrink-0 items-center justify-between">
-              <h3 className="text-base font-semibold text-gray-900">Chats</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold text-gray-900">Chats</h3>
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">Coming soon</span>
+              </div>
               <button className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200">
                 Edit
               </button>
             </div>
 
-            <div className="mt-4 flex-1 space-y-2 overflow-y-auto">
-              {chatContacts.map((contact) => (
-                <div
-                  key={contact.name}
-                  className="flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-gray-50"
-                >
-                  <div
-                    className="h-11 w-11 shrink-0 rounded-full"
-                    style={{ backgroundColor: contact.color }}
-                  />
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-900">{contact.name}</span>
-                    <span className="rounded-md bg-green-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                      {contact.time}
-                    </span>
-                    <span className="truncate text-xs text-gray-400">{contact.message}</span>
-                  </div>
-                  <Pin className="h-4 w-4 shrink-0 text-gray-300" />
-                </div>
-              ))}
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-sm text-gray-400">No chats yet</p>
             </div>
           </div>
 
@@ -330,25 +294,31 @@ function StatCard({
   title,
   value,
   badgeLabel,
+  onArrowClick,
 }: {
   shortLabel: string
   title: string
   value: string
   badgeLabel: string
+  onArrowClick?: () => void
 }) {
   return (
     <div className="flex flex-col justify-between rounded-2xl bg-white p-3 sm:p-4 lg:p-6">
       <div className="flex items-start justify-between">
-        <p className="text-[11px] font-medium text-gray-500 sm:text-sm">
+        <p className="text-lg font-medium text-black sm:text-lg">
           <span className="sm:hidden">{shortLabel}</span>
           <span className="hidden sm:inline">{title}</span>
         </p>
-        <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-gray-100 sm:flex lg:h-9 lg:w-9">
-          <ArrowUpRight className="h-4 w-4 text-gray-400 lg:h-5 lg:w-5" />
-        </span>
+        <button
+          onClick={onArrowClick}
+          disabled={!onArrowClick}
+          className="hidden h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-black transition hover:bg-gray-100 disabled:cursor-default disabled:opacity-40 sm:flex lg:h-9 lg:w-9"
+        >
+          <ArrowUpRight className="h-4 w-4 text-black lg:h-5 lg:w-5" />
+        </button>
       </div>
       <p className="my-1 text-3xl font-medium text-gray-900 sm:my-2 sm:text-4xl lg:text-6xl">{value}</p>
-      <p className="hidden text-xs text-gray-400 sm:block sm:text-sm">{badgeLabel}</p>
+      <p className="hidden text-xs text-fuchsia-700 sm:block sm:text-sm">{badgeLabel}</p>
     </div>
   )
 }

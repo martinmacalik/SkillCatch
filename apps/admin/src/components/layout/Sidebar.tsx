@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 
 const NAV = [
   { label: 'Requests', href: '/requests' },
+  { label: 'Suggestions', href: '/suggestions' },
   { label: 'Messages', href: '/messages' },
   { label: 'Audit Log', href: '/audit' },
 ];

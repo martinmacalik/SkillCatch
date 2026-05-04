@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Pencil, Check, Send, X, Clock } from 'lucide-react'
+import { Pencil, Check, Send, X, Clock, Info } from 'lucide-react'
 import {
   getDefaultLearnSkillId,
   getSkillLearnPageById,
@@ -26,6 +26,7 @@ import { LearnRightPanel } from '@/components/learn/LearnRightPanel'
 import { AddBlockMenu } from '@/components/learn/AddBlockMenu'
 import { EditableBlockRow } from '@/components/learn/EditableBlockRow'
 import { AddToLearnButton } from '@/components/learn/AddToLearnButton'
+import { EditInfoPanel } from '@/components/learn/EditInfoPanel'
 
 const BLOCK_TEMPLATES: Record<BlockType, Record<string, unknown>> = {
   heading:       { level: 2, text: 'Section heading' },
@@ -66,6 +67,7 @@ export default function LearnPage() {
   const [learningSkills, setLearningSkills] = useState<UserLearningSkill[]>([])
 
   const [editMode, setEditMode] = useState<EditMode>('idle')
+  const [showInfoPanel, setShowInfoPanel] = useState(false)
   // Suggestion-mode-only: a working copy of blocks the user is editing locally.
   const [draftBlocks, setDraftBlocks] = useState<DraftBlock[]>([])
   const [suggestionMessage, setSuggestionMessage] = useState('')
@@ -196,6 +198,7 @@ export default function LearnPage() {
 
   const cancelEdit = () => {
     setEditMode('idle')
+    setShowInfoPanel(false)
     setDraftBlocks([])
     setSuggestionMessage('')
   }
@@ -270,6 +273,20 @@ export default function LearnPage() {
           <div className="flex shrink-0 items-center gap-2">
             <AddToLearnButton skillNodeId={data.node.id} />
 
+            {editing && (
+              <button
+                onClick={() => setShowInfoPanel(v => !v)}
+                title="Block types & SkillCoin rewards"
+                className={`flex items-center justify-center rounded-xl border px-2.5 py-2 text-sm transition ${
+                  showInfoPanel
+                    ? 'border-amber-300 bg-amber-50 text-amber-600'
+                    : 'border-gray-200 text-gray-400 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600'
+                }`}
+              >
+                <Info className="h-4 w-4" />
+              </button>
+            )}
+
             {!editing && (
               <button
                 onClick={enterEditMode}
@@ -294,7 +311,7 @@ export default function LearnPage() {
                   {status === 'published' ? 'Unpublish' : 'Publish'}
                 </button>
                 <button
-                  onClick={() => setEditMode('idle')}
+                  onClick={() => { setEditMode('idle'); setShowInfoPanel(false) }}
                   className="flex items-center gap-1.5 rounded-xl bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
                 >
                   <Check className="h-4 w-4" /> Done
@@ -353,6 +370,14 @@ export default function LearnPage() {
         activeSkillId={activeSkillId}
         onSelectSkill={switchSkill}
       />
+
+      {/* ═══ Edit info panel ═══ */}
+      {showInfoPanel && editing && (
+        <EditInfoPanel
+          onClose={() => setShowInfoPanel(false)}
+          isSuggestion={editMode === 'suggestion'}
+        />
+      )}
 
       {/* ═══ Suggestion submit bar (sticky bottom) ═══ */}
       {editMode === 'suggestion' && (

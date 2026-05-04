@@ -7,6 +7,7 @@ import { AccessDeniedPage } from './pages/AccessDeniedPage';
 import { RequestsPage } from './pages/RequestsPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { AuditPage } from './pages/AuditPage';
+import { SuggestionsPage } from './pages/SuggestionsPage';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="requests" element={<RequestsPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="audit" element={<AuditPage />} />
+            <Route path="suggestions" element={<SuggestionsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/requests" replace />} />
         </Routes>

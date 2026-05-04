@@ -32,7 +32,7 @@ interface AddSkillModalProps {
 
 export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddSkillModalProps) {
   const [defs, setDefs] = useState<SkillAttributeDef[]>([]);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string | string[]>>({});
   const [status, setStatus] = useState<Status>("watchlist");
   const [loading, setLoading] = useState(true);
 
@@ -44,9 +44,10 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddS
       .order("sort_order")
       .then(({ data }) => {
         setDefs(data ?? []);
-        // Pre-fill empty strings for each def
-        const initial: Record<string, string> = {};
-        (data ?? []).forEach((d: SkillAttributeDef) => (initial[d.id] = ""));
+        const initial: Record<string, string | string[]> = {};
+        (data ?? []).forEach((d: SkillAttributeDef) => {
+          initial[d.id] = d.type === "multi_select" ? [] : "";
+        });
         setValues(initial);
         setLoading(false);
       });
@@ -55,9 +56,19 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddS
   const setValue = (id: string, val: string) =>
     setValues((prev) => ({ ...prev, [id]: val }));
 
+  const toggleMultiValue = (id: string, val: string) =>
+    setValues((prev) => {
+      const current = Array.isArray(prev[id]) ? (prev[id] as string[]) : [];
+      const next = current.includes(val) ? current.filter((v) => v !== val) : [...current, val];
+      return { ...prev, [id]: next };
+    });
+
   const handleConfirm = () => {
     const result: AttributeValue[] = defs
-      .filter((d) => values[d.id]?.trim())
+      .filter((d) => {
+        const v = values[d.id];
+        return Array.isArray(v) ? v.length > 0 : (v as string)?.trim();
+      })
       .map((d) => ({
         attribute_def_id: d.id,
         value_json: parseValue(values[d.id], d.type),
@@ -125,7 +136,7 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddS
                   </label>
                   {def.type === "enum" && def.enum_values?.length ? (
                     <select
-                      value={values[def.id] ?? ""}
+                      value={values[def.id] as string ?? ""}
                       onChange={(e) => setValue(def.id, e.target.value)}
                       className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-800 outline-none transition focus:border-gray-400 focus:bg-white"
                     >
@@ -134,6 +145,24 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddS
                         <option key={v} value={v}>{v}</option>
                       ))}
                     </select>
+                  ) : def.type === "multi_select" && def.enum_values?.length ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {def.enum_values.map((v) => {
+                        const selected = Array.isArray(values[def.id]) && (values[def.id] as string[]).includes(v);
+                        return (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => toggleMultiValue(def.id, v)}
+                            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                              selected ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            }`}
+                          >
+                            {v}
+                          </button>
+                        );
+                      })}
+                    </div>
                   ) : def.unit ? (
                     <div className="flex items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50 transition focus-within:border-gray-400 focus-within:bg-white">
                       <input
@@ -184,7 +213,8 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddS
   );
 }
 
-function parseValue(raw: string, type: string): unknown {
-  if (type === "number") return parseFloat(raw) || 0;
+function parseValue(raw: string | string[], type: string): unknown {
+  if (type === "number") return parseFloat(raw as string) || 0;
+  if (type === "multi_select") return Array.isArray(raw) ? raw : [];
   return raw;
 }
