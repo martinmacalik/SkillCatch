@@ -602,11 +602,7 @@ function ListView({
                 />
               </div>
               <div className="flex items-center gap-3" onClick={() => onEdit(skill.node, i)}>
-                {skill.node.image_url ? (
-                  <img src={skill.node.image_url} alt={skill.node.name} className="h-9 w-9 rounded-lg object-cover" />
-                ) : (
-                  <IridescentSquare skillId={skill.skill_node_id} index={i} />
-                )}
+                <IridescentSquare skillId={skill.skill_node_id} index={i} />
                 <span className="text-sm font-medium text-gray-900">{skill.node.name}</span>
               </div>
               <div className="text-sm text-gray-400" onClick={() => onEdit(skill.node, i)}>—</div>

@@ -331,7 +331,7 @@ export default function LearnPage() {
         </header>
 
         {/* Content */}
-        <div className="mt-8 flex flex-col gap-3 pb-32">
+        <div className="mt-4 flex flex-col gap-3 pb-32">
           {visibleBlocks.length === 0 && !editing && (
             <p className="rounded-2xl border border-dashed border-gray-200 p-12 text-center text-sm text-gray-400">
               No content yet for this skill.
@@ -339,16 +339,17 @@ export default function LearnPage() {
           )}
 
           {editing
-            ? visibleBlocks.map(b => (
-                <EditableBlockRow
-                  key={b.id}
-                  block={b}
-                  onChange={c => editMode === 'direct' ? directEditBlock(b.id, c) : draftEditBlock(b.id, c)}
-                  onDelete={() => editMode === 'direct' ? directRemoveBlock(b.id) : draftRemoveBlock(b.id)}
-                />
+            ? visibleBlocks.map((b, i) => (
+                <div key={b.id} className={b.type === 'heading' && i > 0 ? 'mt-5' : ''}>
+                  <EditableBlockRow
+                    block={b}
+                    onChange={c => editMode === 'direct' ? directEditBlock(b.id, c) : draftEditBlock(b.id, c)}
+                    onDelete={() => editMode === 'direct' ? directRemoveBlock(b.id) : draftRemoveBlock(b.id)}
+                  />
+                </div>
               ))
-            : visibleBlocks.map(b => (
-                <div key={b.id} className="px-4 py-3">
+            : visibleBlocks.map((b, i) => (
+                <div key={b.id} className={`px-4 ${b.type === 'heading' && i > 0 ? 'pt-7 pb-2' : 'py-2'}`}>
                   <LearningBlockRenderer block={b} />
                 </div>
               ))

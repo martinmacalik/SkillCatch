@@ -16,10 +16,10 @@ export function FlashcardsBlock({ content }: { content: Record<string, unknown> 
   const prev = () => { setI(Math.max(0, i - 1)); setFlipped(false) }
 
   return (
-    <div className="rounded-2xl border border-gray-200 p-6">
+    <div className="rounded-2xl p-6">
       <button
         onClick={() => setFlipped(f => !f)}
-        className="flex min-h-32 w-full items-center justify-center rounded-xl bg-gray-50 p-6 text-center text-lg font-medium text-black transition hover:bg-gray-100"
+        className="flex min-h-32 w-full cursor-pointer items-center justify-center rounded-xl bg-gray-50 p-6 text-center text-lg font-medium text-black"
       >
         {flipped ? card.back : card.front}
       </button>
