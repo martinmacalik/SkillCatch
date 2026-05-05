@@ -8,6 +8,7 @@ export interface SkillNode {
   name: string
   slug: string
   is_leaf: boolean
+  image_url: string | null
 }
 
 export interface LearningPage {
@@ -47,7 +48,7 @@ export interface LearnPageData {
 export async function getSkillLearnPageById(skillId: string): Promise<LearnPageData | null> {
   const { data: node } = await supabase
     .from('skill_nodes')
-    .select('id, name, slug, is_leaf')
+    .select('id, name, slug, is_leaf, image_url')
     .eq('id', skillId)
     .maybeSingle()
   if (!node) return null

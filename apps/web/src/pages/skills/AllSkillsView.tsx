@@ -616,7 +616,7 @@ function ListView({
               <div onClick={() => onEdit(skill.node, i)}><StatusBadge status={skill.status} /></div>
               <button
                 onClick={(e) => { e.stopPropagation(); onTogglePin(skill.skill_node_id, skill.pinned); }}
-                className={`cursor-pointer rounded-lg p-1 transition hover:bg-gray-100 ${skill.pinned ? "text-purple-600" : "text-gray-300 hover:text-gray-500"}`}
+                className={`cursor-pointer rounded-lg p-1 transition ${skill.pinned ? "text-purple-600" : "text-gray-300 hover:text-gray-500"}`}
                 title={skill.pinned ? "Unpin" : "Pin to top"}
               >
                 <Pin className="h-4 w-4" />

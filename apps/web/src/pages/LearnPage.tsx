@@ -245,12 +245,87 @@ export default function LearnPage() {
     <div className="flex min-h-full gap-6">
       {/* ═══ Middle column ═══ */}
       <div className="min-w-0 flex-1">
-        <header className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="truncate text-3xl font-bold tracking-tight text-black">
+        <header>
+          {/* Banner: skill image (or gradient fallback) with title overlaid */}
+          <div className="relative h-44 w-full overflow-hidden rounded-2xl">
+            {data.node.image_url ? (
+              <img
+                src={data.node.image_url}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-linear-to-br from-violet-500 to-fuchsia-600" />
+            )}
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/10 to-transparent" />
+            <h1 className="absolute bottom-4 left-5 text-3xl font-bold tracking-tight text-white drop-shadow">
               {data.node.name}
             </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+
+            {/* Action buttons — top-right corner of banner */}
+            <div className="absolute right-3 top-3 flex items-center gap-2">
+              <AddToLearnButton skillNodeId={data.node.id} />
+
+              {editing && (
+                <button
+                  onClick={() => setShowInfoPanel(v => !v)}
+                  title="Block types & SkillCoin rewards"
+                  className={`flex cursor-pointer items-center justify-center rounded-xl border px-2.5 py-2 text-sm ${
+                    showInfoPanel
+                      ? 'border-amber-300 bg-amber-50 text-amber-600'
+                      : 'border-gray-200 bg-white/90 text-gray-400 hover:bg-amber-50 hover:text-amber-600'
+                  }`}
+                >
+                  <Info className="h-4 w-4" />
+                </button>
+              )}
+
+              {!editing && (
+                <button
+                  onClick={enterEditMode}
+                  disabled={!isEditor && !!pendingSuggestion}
+                  title={!isEditor && pendingSuggestion ? 'You already have a pending suggestion for this skill' : undefined}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-gray-200 bg-white/90 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Pencil className="h-4 w-4" /> Edit
+                </button>
+              )}
+
+              {editMode === 'direct' && (
+                <>
+                  <button
+                    onClick={togglePublish}
+                    className={`cursor-pointer rounded-xl px-3 py-2 text-sm font-medium ${
+                      status === 'published'
+                        ? 'border border-gray-200 bg-white/90 text-black'
+                        : 'bg-black text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    {status === 'published' ? 'Unpublish' : 'Publish'}
+                  </button>
+                  <button
+                    onClick={() => { setEditMode('idle'); setShowInfoPanel(false) }}
+                    className="flex items-center gap-1.5 rounded-xl bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                  >
+                    <Check className="h-4 w-4" /> Done
+                  </button>
+                </>
+              )}
+
+              {editMode === 'suggestion' && (
+                <button
+                  onClick={cancelEdit}
+                  className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white/90 px-3 py-2 text-sm hover:border-black"
+                >
+                  <X className="h-4 w-4" /> Cancel
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Badges below banner */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {status === 'draft' && (
                 <span className="inline-block rounded-full border border-pink-200 bg-pink-50 px-2 py-0.5 text-xs font-medium text-pink-700">
                   Draft
@@ -270,64 +345,6 @@ export default function LearnPage() {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <AddToLearnButton skillNodeId={data.node.id} />
-
-            {editing && (
-              <button
-                onClick={() => setShowInfoPanel(v => !v)}
-                title="Block types & SkillCoin rewards"
-                className={`flex items-center justify-center rounded-xl border px-2.5 py-2 text-sm transition ${
-                  showInfoPanel
-                    ? 'border-amber-300 bg-amber-50 text-amber-600'
-                    : 'border-gray-200 text-gray-400 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600'
-                }`}
-              >
-                <Info className="h-4 w-4" />
-              </button>
-            )}
-
-            {!editing && (
-              <button
-                onClick={enterEditMode}
-                disabled={!isEditor && !!pendingSuggestion}
-                title={!isEditor && pendingSuggestion ? 'You already have a pending suggestion for this skill' : undefined}
-                className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm transition hover:border-black disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Pencil className="h-4 w-4" /> Edit
-              </button>
-            )}
-
-            {editMode === 'direct' && (
-              <>
-                <button
-                  onClick={togglePublish}
-                  className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                    status === 'published'
-                      ? 'border border-gray-200 text-black hover:border-black'
-                      : 'bg-black text-white hover:bg-gray-800'
-                  }`}
-                >
-                  {status === 'published' ? 'Unpublish' : 'Publish'}
-                </button>
-                <button
-                  onClick={() => { setEditMode('idle'); setShowInfoPanel(false) }}
-                  className="flex items-center gap-1.5 rounded-xl bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
-                >
-                  <Check className="h-4 w-4" /> Done
-                </button>
-              </>
-            )}
-
-            {editMode === 'suggestion' && (
-              <button
-                onClick={cancelEdit}
-                className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm hover:border-black"
-              >
-                <X className="h-4 w-4" /> Cancel
-              </button>
-            )}
-          </div>
         </header>
 
         {/* Content */}

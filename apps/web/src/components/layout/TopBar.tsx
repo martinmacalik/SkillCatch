@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, Coins, Settings } from 'lucide-react'
+import { Search, Settings } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
@@ -66,11 +66,9 @@ export function TopBar() {
       {/* Profile section */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* SkillCoins */}
-        <div className="relative hidden sm:block">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-            <Coins className="h-4 w-4 text-amber-600" />
-          </div>
-          <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white leading-none">
+        <div className="relative hidden h-10 w-10 shrink-0 sm:block">
+          <img src="/coin.svg" alt="" className="h-full w-full" />
+          <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-black">
             {profile?.skillcoin_balance ?? 0}
           </span>
         </div>

@@ -32,7 +32,7 @@ export default function DashboardPage() {
   const [totalSkills, setTotalSkills] = useState(0)
   const [learningCount, setLearningCount] = useState(0)
   const [dayStreak, setDayStreak] = useState(0)
-  const [pinnedSkill, setPinnedSkill] = useState<SkillNode | null>(null)
+  const [pinnedSkills, setPinnedSkills] = useState<SkillNode[]>([])
   const [learningSkills, setLearningSkills] = useState<SkillNode[]>([])
   const [editingNode, setEditingNode] = useState<{ node: SkillNode; index: number } | null>(null)
 
@@ -59,11 +59,11 @@ export default function DashboardPage() {
       setLearningCount(learning.length)
 
       // 2. Fetch nodes for learning skills + pinned
-      const pinned = rows.find((r: any) => r.pinned)
+      const pinnedRows = rows.filter((r: any) => r.pinned).slice(0, 3)
       const relevantIds = [
         ...new Set([
           ...learning.map((r: any) => r.skill_node_id),
-          ...(pinned ? [pinned.skill_node_id] : []),
+          ...pinnedRows.map((r: any) => r.skill_node_id),
         ]),
       ]
 
@@ -76,9 +76,11 @@ export default function DashboardPage() {
         const nodeMap: Record<string, SkillNode> = {}
         ;(nodes ?? []).forEach((n: SkillNode) => (nodeMap[n.id] = n))
 
-        if (pinned && nodeMap[pinned.skill_node_id]) {
-          setPinnedSkill(nodeMap[pinned.skill_node_id])
-        }
+        setPinnedSkills(
+          pinnedRows
+            .filter((r: any) => nodeMap[r.skill_node_id])
+            .map((r: any) => nodeMap[r.skill_node_id])
+        )
 
         setLearningSkills(
           learning
@@ -246,28 +248,30 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Pinned Skill: tablet col2 row3 | desktop rows 3-4, cols 3-5 */}
+          {/* Pinned Skills: tablet col2 row3 | desktop rows 3-4, cols 3-5 */}
           <div className="flex min-h-48 flex-col rounded-2xl bg-white p-6 sm:col-start-2 sm:row-start-3 2xl:col-span-3 2xl:col-start-3 2xl:row-start-3 2xl:row-end-5 2xl:min-h-0">
-            <h3 className="mb-3 text-base font-semibold text-gray-900">Pinned Skill</h3>
-            {pinnedSkill ? (
-              <button
-                onClick={() => setEditingNode({ node: pinnedSkill, index: 0 })}
-                className="flex flex-1 cursor-pointer items-center gap-5 rounded-2xl p-2 text-left transition hover:bg-gray-50"
-              >
-                {pinnedSkill.image_url ? (
-                  <img
-                    src={pinnedSkill.image_url}
-                    alt={pinnedSkill.name}
-                    className="h-28 w-44 shrink-0 rounded-2xl object-cover"
-                  />
-                ) : (
-                  <div className={`h-28 w-44 shrink-0 rounded-2xl ${colorForIndex(0)}`} />
-                )}
-                <div>
-                  <p className="text-xl font-semibold text-gray-900">{pinnedSkill.name}</p>
-                  <p className="mt-1 text-sm text-gray-400">Pinned to your dashboard</p>
-                </div>
-              </button>
+            <h3 className="mb-3 text-base font-semibold text-gray-900">Pinned Skills</h3>
+            {pinnedSkills.length > 0 ? (
+              <div className="flex flex-1 min-h-0 flex-col gap-2">
+                {pinnedSkills.map((node, i) => (
+                  <button
+                    key={node.id}
+                    onClick={() => setEditingNode({ node, index: i })}
+                    className="relative flex flex-1 min-h-0 cursor-pointer overflow-hidden rounded-2xl text-left transition hover:opacity-90"
+                  >
+                    {node.image_url ? (
+                      <img src={node.image_url} alt={node.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className={`h-full w-full ${colorForIndex(i)}`} />
+                    )}
+                    <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+                    <div className="absolute bottom-3 left-4">
+                      <p className="text-sm font-semibold text-white drop-shadow">{node.name}</p>
+                      <p className="text-xs text-white/60">Pinned</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             ) : (
               <div className="flex flex-1 items-center justify-center">
                 <p className="text-sm text-gray-400">
@@ -278,7 +282,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Time Tracker: tablet col2 row1 | desktop row 4, col 6 */}
-          <div className="flex min-h-24 flex-col justify-end rounded-2xl bg-gradient-to-br from-indigo-900 to-fuchsia-700 p-6 sm:col-start-2 sm:row-start-1 2xl:col-span-1 2xl:col-start-6 2xl:row-start-4 2xl:row-end-5 2xl:min-h-0">
+          <div className="flex min-h-24 flex-col justify-end rounded-2xl bg-linear-to-br from-indigo-900 to-fuchsia-700 p-6 sm:col-start-2 sm:row-start-1 2xl:col-span-1 2xl:col-start-6 2xl:row-start-4 2xl:row-end-5 2xl:min-h-0">
             <p className="text-2xl font-bold text-white">Time Tracker</p>
           </div>
         </div>
