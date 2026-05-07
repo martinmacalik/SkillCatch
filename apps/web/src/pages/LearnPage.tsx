@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Pencil, Check, Send, X, Clock, Info } from 'lucide-react'
 import {
   getDefaultLearnSkillId,
@@ -27,6 +27,8 @@ import { AddBlockMenu } from '@/components/learn/AddBlockMenu'
 import { EditableBlockRow } from '@/components/learn/EditableBlockRow'
 import { AddToLearnButton } from '@/components/learn/AddToLearnButton'
 import { EditInfoPanel } from '@/components/learn/EditInfoPanel'
+import { LevelUpPage } from '@/components/learn/LevelUpPage'
+import { ProgressPage } from '@/components/learn/ProgressPage'
 
 const BLOCK_TEMPLATES: Record<BlockType, Record<string, unknown>> = {
   heading:       { level: 2, text: 'Section heading' },
@@ -60,6 +62,8 @@ type EditMode = 'idle' | 'direct' | 'suggestion'
 export default function LearnPage() {
   const { skillId: skillIdParam } = useParams<{ skillId?: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = (searchParams.get('tab') ?? 'start') as 'start' | 'levelup' | 'progress'
   const isEditor = useIsEditor()
 
   const [activeSkillId, setActiveSkillId] = useState<string | null>(skillIdParam ?? null)
@@ -67,6 +71,7 @@ export default function LearnPage() {
   const [learningSkills, setLearningSkills] = useState<UserLearningSkill[]>([])
 
   const [editMode, setEditMode] = useState<EditMode>('idle')
+  const [tabEditing, setTabEditing] = useState(false)
   const [showInfoPanel, setShowInfoPanel] = useState(false)
   // Suggestion-mode-only: a working copy of blocks the user is editing locally.
   const [draftBlocks, setDraftBlocks] = useState<DraftBlock[]>([])
@@ -74,6 +79,9 @@ export default function LearnPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const [pendingSuggestion, setPendingSuggestion] = useState<PendingSuggestion | null>(null)
+
+  // Reset tab-level edit mode when switching tabs
+  useEffect(() => { setTabEditing(false) }, [activeTab])
 
   // ── Resolve which skill to show ──
   useEffect(() => {
@@ -280,7 +288,7 @@ export default function LearnPage() {
                 </button>
               )}
 
-              {!editing && (
+              {!editing && activeTab === 'start' && (
                 <button
                   onClick={enterEditMode}
                   disabled={!isEditor && !!pendingSuggestion}
@@ -288,6 +296,24 @@ export default function LearnPage() {
                   className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-gray-200 bg-white/90 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Pencil className="h-4 w-4" /> Edit
+                </button>
+              )}
+
+              {isEditor && (activeTab === 'levelup' || activeTab === 'progress') && !tabEditing && (
+                <button
+                  onClick={() => setTabEditing(true)}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-gray-200 bg-white/90 px-3 py-2 text-sm"
+                >
+                  <Pencil className="h-4 w-4" /> Edit
+                </button>
+              )}
+
+              {(activeTab === 'levelup' || activeTab === 'progress') && tabEditing && (
+                <button
+                  onClick={() => setTabEditing(false)}
+                  className="flex items-center gap-1.5 rounded-xl bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                >
+                  <Check className="h-4 w-4" /> Done
                 </button>
               )}
 
@@ -326,12 +352,12 @@ export default function LearnPage() {
           {/* Badges below banner */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              {status === 'draft' && (
+              {status === 'draft' && activeTab === 'start' && (
                 <span className="inline-block rounded-full border border-pink-200 bg-pink-50 px-2 py-0.5 text-xs font-medium text-pink-700">
                   Draft
                 </span>
               )}
-              {pendingSuggestion && editMode === 'idle' && (
+              {pendingSuggestion && editMode === 'idle' && activeTab === 'start' && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                   <Clock className="h-3 w-3" />
                   Your suggestion is awaiting review
@@ -345,39 +371,66 @@ export default function LearnPage() {
             </div>
           </div>
 
+          {/* Tab bar */}
+          <div className="mt-5 flex items-center gap-1 border-b border-gray-100">
+            {(['start', 'levelup', 'progress'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setSearchParams({ tab })}
+                className={`cursor-pointer px-4 py-2 text-sm font-medium transition-colors duration-150 border-b-2 -mb-px ${
+                  activeTab === tab
+                    ? 'border-gray-900 text-gray-900'
+                    : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {tab === 'start' ? 'Start Learning' : tab === 'levelup' ? 'Level Up' : 'Progress'}
+              </button>
+            ))}
+          </div>
+
         </header>
 
         {/* Content */}
-        <div className="mt-4 flex flex-col gap-3 pb-32">
-          {visibleBlocks.length === 0 && !editing && (
-            <p className="rounded-2xl border border-dashed border-gray-200 p-12 text-center text-sm text-gray-400">
-              No content yet for this skill.
-            </p>
-          )}
+        {activeTab === 'start' && (
+          <div className="mt-4 flex flex-col gap-3 pb-32">
+            {visibleBlocks.length === 0 && !editing && (
+              <p className="rounded-2xl border border-dashed border-gray-200 p-12 text-center text-sm text-gray-400">
+                No content yet for this skill.
+              </p>
+            )}
 
-          {editing
-            ? visibleBlocks.map((b, i) => (
-                <div key={b.id} className={b.type === 'heading' && i > 0 ? 'mt-5' : ''}>
-                  <EditableBlockRow
-                    block={b}
-                    onChange={c => editMode === 'direct' ? directEditBlock(b.id, c) : draftEditBlock(b.id, c)}
-                    onDelete={() => editMode === 'direct' ? directRemoveBlock(b.id) : draftRemoveBlock(b.id)}
-                  />
-                </div>
-              ))
-            : visibleBlocks.map((b, i) => (
-                <div key={b.id} className={`px-4 ${b.type === 'heading' && i > 0 ? 'pt-7 pb-2' : 'py-2'}`}>
-                  <LearningBlockRenderer block={b} />
-                </div>
-              ))
-          }
+            {editing
+              ? visibleBlocks.map((b, i) => (
+                  <div key={b.id} className={b.type === 'heading' && i > 0 ? 'mt-5' : ''}>
+                    <EditableBlockRow
+                      block={b}
+                      onChange={c => editMode === 'direct' ? directEditBlock(b.id, c) : draftEditBlock(b.id, c)}
+                      onDelete={() => editMode === 'direct' ? directRemoveBlock(b.id) : draftRemoveBlock(b.id)}
+                    />
+                  </div>
+                ))
+              : visibleBlocks.map((b, i) => (
+                  <div key={b.id} className={`px-4 ${b.type === 'heading' && i > 0 ? 'pt-7 pb-2' : 'py-2'}`}>
+                    <LearningBlockRenderer block={b} />
+                  </div>
+                ))
+            }
 
-          {editing && (
-            <div className="mt-2">
-              <AddBlockMenu onAdd={editMode === 'direct' ? directAddBlock : draftAddBlock} />
-            </div>
-          )}
-        </div>
+            {editing && (
+              <div className="mt-2">
+                <AddBlockMenu onAdd={editMode === 'direct' ? directAddBlock : draftAddBlock} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'levelup' && (
+          <LevelUpPage skillNodeId={data.node.id} isEditing={tabEditing} />
+        )}
+
+        {activeTab === 'progress' && (
+          <ProgressPage skillNodeId={data.node.id} isEditing={tabEditing} />
+        )}
       </div>
 
       {/* ═══ Right panel ═══ */}

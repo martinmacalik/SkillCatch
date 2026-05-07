@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, type ReactNode } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import AppScreen from '../assets/AppScreen4x.png';
 import LogoColored from '../assets/LogoColored.png';
@@ -169,9 +169,7 @@ function FeaturesSection() {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
             {/* Large feature */}
             <div className="lg:col-span-3 bg-gray-50 rounded-3xl p-10 flex flex-col gap-8">
-              <div className="flex-1 min-h-64 bg-gray-200 rounded-2xl flex items-center justify-center">
-                <span className="text-gray-400 text-sm font-medium tracking-wide">Skill Tree Preview</span>
-              </div>
+              <SkillTreePreview />
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Track Your Skills</h3>
                 <p className="text-gray-600 leading-relaxed">Organize your learning with an interactive skill tree and track your progress in real-time.</p>
@@ -179,20 +177,29 @@ function FeaturesSection() {
             </div>
             {/* Three smaller features */}
             <div className="lg:col-span-2 flex flex-col gap-5">
-              <div className="bg-gray-50 rounded-3xl p-8 flex-1">
-                <div className="w-10 h-10 rounded-xl mb-5 bg-blue-100" />
-                <h3 className="text-base font-semibold text-gray-900 mb-2">Learn from Experts and Peers</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">Connect with teachers and peers who can help you grow faster. Share resources and attend live workshops.</p>
+              {/* Card 1 — light */}
+              <div className="bg-gray-50 rounded-3xl flex-1 p-7 flex flex-col justify-between">
+                <span className="text-[11px] font-medium text-[#688DE0] tracking-widest uppercase">Community</span>
+                <div>
+                  <h3 className="text-base font-medium text-gray-900 mb-2">Learn from Experts and Peers</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">Connect with teachers and peers who can help you grow faster. Share resources, discuss skills, and attend live workshops.</p>
+                </div>
               </div>
-              <div className="bg-gray-50 rounded-3xl p-8 flex-1">
-                <div className="w-10 h-10 rounded-xl mb-5 bg-pink-100" />
-                <h3 className="text-base font-semibold text-gray-900 mb-2">Skillcoins & Rewards</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">Gamify your progress and earn Skillcoins as you complete assessments, hit milestones, and engage with the community.</p>
+              {/* Card 2 */}
+              <div className="bg-gray-50 rounded-3xl flex-1 p-7 flex flex-col justify-between">
+                <span className="text-[11px] font-medium text-[#d6aa59] tracking-widest uppercase">Rewards</span>
+                <div>
+                  <h3 className="text-base font-medium text-gray-900 mb-2">Skillcoins & Rewards</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">Gamify your progress and earn Skillcoins as you complete assessments, hit milestones, and engage with the community.</p>
+                </div>
               </div>
-              <div className="bg-gray-50 rounded-3xl p-8 flex-1">
-                <div className="w-10 h-10 rounded-xl mb-5 bg-purple-100" />
-                <h3 className="text-base font-semibold text-gray-900 mb-2">Customizable Skill Spaces</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">Design your own learning path and customize your skill tree. Add personalized attributes and share your journey.</p>
+              {/* Card 3 — light */}
+              <div className="bg-gray-50 rounded-3xl flex-1 p-7 flex flex-col justify-between">
+                <span className="text-[11px] font-medium text-[#D2608C] tracking-widest uppercase">Customize</span>
+                <div>
+                  <h3 className="text-base font-medium text-gray-900 mb-2">Customizable Skill Spaces</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">Design your own learning path and customize your skill tree. Add personalized attributes, create unique nodes, and share your journey.</p>
+                </div>
               </div>
             </div>
           </div>
@@ -246,26 +253,17 @@ function GamificationSection() {
                 SkillCatch turns your growth into a game. Earn rewards, challenge others, and make your learning path uniquely yours.
               </p>
               <div className="flex flex-col gap-8">
-                <div className="flex gap-5 items-start">
-                  <div className="w-11 h-11 rounded-2xl shrink-0 bg-linear-to-r from-[#688DE0] to-[#D2608C]" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Skillcoins – Your Learning Currency</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">Earn Skillcoins as you progress. Use them to unlock resources, mentor sessions, or exclusive content.</p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Skillcoins – Your Learning Currency</h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">Earn Skillcoins as you progress. Use them to unlock resources, mentor sessions, or exclusive content.</p>
                 </div>
-                <div className="flex gap-5 items-start">
-                  <div className="w-11 h-11 rounded-2xl shrink-0 bg-gray-100" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Community Challenges</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">Engage in group challenges and leaderboards — compete or collaborate with others in your skill space.</p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Community Challenges</h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">Engage in group challenges and leaderboards — compete or collaborate with others in your skill space.</p>
                 </div>
-                <div className="flex gap-5 items-start">
-                  <div className="w-11 h-11 rounded-2xl shrink-0 bg-gray-100" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">Customize Your Learning Path</h3>
-                    <p className="text-gray-600 text-sm leading-relaxed">Make your journey yours by customizing your skill tree, adding attributes, and sharing resources with the community.</p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">Customize Your Learning Path</h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">Make your journey yours by customizing your skill tree, adding attributes, and sharing resources with the community.</p>
                 </div>
               </div>
             </div>
@@ -327,6 +325,188 @@ function PricingSection() {
       </div>
     </section>
   );
+}
+
+// ── Skill Tree Preview ───────────────────────────────────────────────
+
+type PreviewNode = { label: string; children?: PreviewNode[] }
+
+const winterSportsTree: PreviewNode = {
+  label: 'Winter Sports',
+  children: [
+    {
+      label: 'Alpine Skiing',
+      children: [
+        {
+          label: 'Speed Events',
+          children: [{ label: 'Downhill' }, { label: 'Super-G' }],
+        },
+        {
+          label: 'Technical Events',
+          children: [{ label: 'Slalom' }, { label: 'Giant Slalom' }],
+        },
+      ],
+    },
+    {
+      label: 'Snowboarding',
+      children: [
+        {
+          label: 'Freestyle',
+          children: [{ label: 'Halfpipe' }, { label: 'Big Air' }],
+        },
+        {
+          label: 'Racing',
+          children: [{ label: 'Parallel SL' }, { label: 'Boardercross' }],
+        },
+      ],
+    },
+    {
+      label: 'Ice Sports',
+      children: [
+        {
+          label: 'Skating',
+          children: [{ label: 'Figure Skating' }, { label: 'Speed Skating' }],
+        },
+        {
+          label: 'Ice Hockey',
+          children: [{ label: 'Offense' }, { label: 'Defense' }],
+        },
+      ],
+    },
+  ],
+}
+
+function TreeNodeBox({ label, depth }: { label: string; depth: number }) {
+  if (depth === 0)
+    return (
+      <div className="bg-gray-900 text-white text-xs font-semibold px-4 py-2 rounded-xl whitespace-nowrap">
+        {label}
+      </div>
+    )
+  if (depth === 1)
+    return (
+      <div className="bg-white border border-gray-200 shadow-sm text-gray-700 text-xs font-medium px-3 py-1.5 rounded-xl whitespace-nowrap">
+        {label}
+      </div>
+    )
+  return (
+    <div className="bg-white border border-gray-100 text-gray-400 text-[11px] px-2.5 py-1 rounded-lg whitespace-nowrap">
+      {label}
+    </div>
+  )
+}
+
+function TreeGrid({ node, depth = 0 }: { node: PreviewNode; depth?: number }) {
+  const kids = node.children ?? []
+  const N = kids.length
+
+  if (N === 0)
+    return (
+      <div className="px-2">
+        <TreeNodeBox label={node.label} depth={depth} />
+      </div>
+    )
+
+  // Centers parent over the middle column(s) — same formula as RestructureForm BranchGrid
+  const parentColStart = Math.floor((N - 1) / 2) + 1
+  const parentColEnd = Math.floor(N / 2) + 2
+
+  return (
+    <div
+      className="grid items-start justify-items-center"
+      style={{ gridTemplateColumns: `repeat(${N}, max-content)`, gridTemplateRows: 'auto auto auto auto' }}
+    >
+      {/* Row 1 — parent node */}
+      <div style={{ gridRow: 1, gridColumn: `${parentColStart} / ${parentColEnd}` }}>
+        <TreeNodeBox label={node.label} depth={depth} />
+      </div>
+
+      {/* Row 2 — stem down from parent */}
+      <div style={{ gridRow: 2, gridColumn: `${parentColStart} / ${parentColEnd}` }} className="relative h-4 w-full">
+        <div className="absolute left-1/2 top-0 h-full w-px bg-gray-200" />
+      </div>
+
+      {/* Row 3 — each child column renders its own trunk segment + vertical stem */}
+      {kids.map((_, i) => (
+        <div key={`stem-${i}`} style={{ gridRow: 3, gridColumn: i + 1 }} className="relative h-4 w-full">
+          {N > 1 && (
+            <div
+              className={`absolute top-0 h-px bg-gray-200 ${
+                i === 0 ? 'left-1/2 right-0' : i === N - 1 ? 'left-0 right-1/2' : 'inset-x-0'
+              }`}
+            />
+          )}
+          <div className="absolute left-1/2 top-0 h-full w-px bg-gray-200" />
+        </div>
+      ))}
+
+      {/* Row 4 — child subtrees (recursive) */}
+      {kids.map((kid, i) => (
+        <div key={kid.label} style={{ gridRow: 4, gridColumn: i + 1 }} className="px-2">
+          <TreeGrid node={kid} depth={depth + 1} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SkillTreePreview() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [pan, setPan] = useState({ x: 0, y: 48 })
+  const [dragging, setDragging] = useState(false)
+  const drag = useRef<{ startX: number; startY: number; panX: number; panY: number } | null>(null)
+  const userInteracted = useRef(false)
+
+  // Auto-center the tree horizontally until the user drags
+  useLayoutEffect(() => {
+    const c = containerRef.current
+    const s = stageRef.current
+    if (!c || !s) return
+    const center = () => {
+      if (userInteracted.current) return
+      setPan({ x: (c.offsetWidth - s.offsetWidth) / 2, y: 48 })
+    }
+    center()
+    const ro = new ResizeObserver(center)
+    ro.observe(s)
+    return () => ro.disconnect()
+  }, [])
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    drag.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y }
+    setDragging(true)
+    e.preventDefault()
+  }
+
+  useEffect(() => {
+    if (!dragging) return
+    const move = (e: MouseEvent) => {
+      if (!drag.current) return
+      userInteracted.current = true
+      setPan({ x: drag.current.panX + (e.clientX - drag.current.startX), y: drag.current.panY + (e.clientY - drag.current.startY) })
+    }
+    const up = () => setDragging(false)
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [dragging])
+
+  return (
+    <div
+      ref={containerRef}
+      className={`flex-1 min-h-64 rounded-2xl overflow-hidden relative select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      style={{ background: 'radial-gradient(circle, #e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px', backgroundColor: '#f9fafb' }}
+      onMouseDown={onMouseDown}
+    >
+      <div ref={stageRef} className="absolute top-0 left-0 p-6" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
+        <TreeGrid node={winterSportsTree} />
+      </div>
+      <div className="absolute bottom-3 right-3 text-[10px] text-gray-400 pointer-events-none select-none">
+        drag to explore
+      </div>
+    </div>
+  )
 }
 
 function SiteFooter() {
