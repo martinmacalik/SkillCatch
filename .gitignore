@@ -37,3 +37,6 @@ apps/**/.env
 
 # Brainstorming mockups
 .superpowers/
+
+# Playwright MCP scratch outputs
+.playwright-mcp/
