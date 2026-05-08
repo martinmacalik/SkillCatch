@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { colorForIndex } from "./types";
 import type { SkillNode, SkillAttributeDef } from "./types";
 
 type Status = "watchlist" | "learning" | "learned" | "dormant";
+
+if (typeof document !== "undefined" && !document.getElementById("success-pop-kf")) {
+  const s = document.createElement("style");
+  s.id = "success-pop-kf";
+  s.textContent = `@keyframes successPop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }`;
+  document.head.appendChild(s);
+}
 
 const STATUS_OPTIONS: {
   key: Status;
@@ -26,15 +33,18 @@ export interface AttributeValue {
 interface AddSkillModalProps {
   node: SkillNode;
   index: number;
-  onConfirm: (values: AttributeValue[], status: Status) => void;
+  onConfirm: (values: AttributeValue[], status: Status) => Promise<void>;
   onCancel: () => void;
+  onDone: () => void;
 }
 
-export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddSkillModalProps) {
+export default function AddSkillModal({ node, index, onConfirm, onCancel, onDone }: AddSkillModalProps) {
   const [defs, setDefs] = useState<SkillAttributeDef[]>([]);
   const [values, setValues] = useState<Record<string, string | string[]>>({});
   const [status, setStatus] = useState<Status>("watchlist");
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     supabase
@@ -63,7 +73,8 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddS
       return { ...prev, [id]: next };
     });
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (submitting || success) return;
     const result: AttributeValue[] = defs
       .filter((d) => {
         const v = values[d.id];
@@ -73,7 +84,15 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddS
         attribute_def_id: d.id,
         value_json: parseValue(values[d.id], d.type),
       }));
-    onConfirm(result, status);
+    setSubmitting(true);
+    try {
+      await onConfirm(result, status);
+      setSubmitting(false);
+      setSuccess(true);
+      setTimeout(() => onDone(), 900);
+    } catch {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -192,21 +211,38 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel }: AddS
           )}
 
           {/* Actions */}
-          <div className="mt-6 flex gap-3">
-            <button
-              onClick={onCancel}
-              className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={loading}
-              className="flex-1 rounded-2xl bg-gray-900 py-3 text-sm font-semibold text-white transition hover:bg-gray-700 disabled:opacity-40"
-            >
-              Add
-            </button>
-          </div>
+          {success ? (
+            <div className="mt-6 flex flex-col items-center gap-2 py-2">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 shadow-lg"
+                style={{ animation: 'successPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                <Check className="h-7 w-7 text-white" strokeWidth={3} />
+              </div>
+              <p className="text-sm font-semibold text-gray-900">Added to your profile!</p>
+              <p className="text-xs text-gray-400">{node.name}</p>
+            </div>
+          ) : (
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={onCancel}
+                disabled={submitting}
+                className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={loading || submitting}
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gray-900 py-3 text-sm font-semibold text-white transition hover:bg-gray-700 disabled:opacity-40"
+              >
+                {submitting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Adding…
+                  </>
+                ) : 'Add'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

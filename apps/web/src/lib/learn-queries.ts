@@ -94,6 +94,18 @@ export async function getUserLearningSkills(): Promise<UserLearningSkill[]> {
   return (data ?? []) as UserLearningSkill[]
 }
 
+export async function getAllUserSkills(userId: string): Promise<UserLearningSkill[]> {
+  const { data, error } = await supabase
+    .from('user_skills')
+    .select('skill_node_id, status, pinned, last_opened_at, created_at, skill_nodes(name, slug)')
+    .eq('user_id', userId)
+    .order('pinned', { ascending: false })
+    .order('last_opened_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as UserLearningSkill[]
+}
+
 // Returns the skill the Learn page should default to (top of the ordering).
 // Null if the user has nothing in their Learning column.
 export async function getDefaultLearnSkillId(): Promise<string | null> {

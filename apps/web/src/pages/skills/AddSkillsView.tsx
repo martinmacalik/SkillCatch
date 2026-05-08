@@ -148,8 +148,9 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
     setPendingNode({ node, index });
   };
 
-  // Called when user confirms in the modal
-  const confirmAddSkill = async (attributeValues: AttributeValue[], status: string) => {
+  // Called when user confirms in the modal — returns a promise so the modal
+  // can animate success before it closes itself via onDone.
+  const confirmAddSkill = async (attributeValues: AttributeValue[], status: string): Promise<void> => {
     if (!session?.user || !pendingNode) return;
     const { node } = pendingNode;
 
@@ -157,22 +158,21 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
       .from("user_skills")
       .insert({ user_id: session.user.id, skill_node_id: node.id, status });
 
-    if (!error) {
-      if (attributeValues.length > 0) {
-        await supabase.from("user_skill_attributes").insert(
-          attributeValues.map((av) => ({
-            user_id: session.user.id,
-            skill_node_id: node.id,
-            attribute_def_id: av.attribute_def_id,
-            value_json: av.value_json,
-          }))
-        );
-      }
-      setUserSkillIds((prev) => new Set([...prev, node.id]));
-      onSkillAdded();
-    }
+    if (error) throw error;
 
-    setPendingNode(null);
+    if (attributeValues.length > 0) {
+      await supabase.from("user_skill_attributes").insert(
+        attributeValues.map((av) => ({
+          user_id: session.user.id,
+          skill_node_id: node.id,
+          attribute_def_id: av.attribute_def_id,
+          value_json: av.value_json,
+        }))
+      );
+    }
+    setUserSkillIds((prev) => new Set([...prev, node.id]));
+    onSkillAdded();
+    // Modal closes itself after its success animation via onDone
   };
 
   /* ── branch navigation ── */
@@ -454,6 +454,7 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
         index={pendingNode.index}
         onConfirm={confirmAddSkill}
         onCancel={() => setPendingNode(null)}
+        onDone={() => setPendingNode(null)}
       />
     )}
     </>

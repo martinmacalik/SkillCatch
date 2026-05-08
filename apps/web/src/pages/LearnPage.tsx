@@ -4,7 +4,7 @@ import { Pencil, Check, Send, X, Clock, Info } from 'lucide-react'
 import {
   getDefaultLearnSkillId,
   getSkillLearnPageById,
-  getUserLearningSkills,
+  getAllUserSkills,
   ensureLearningPage,
   setPageStatus,
   createLearningBlock,
@@ -21,6 +21,7 @@ import {
   type ProposedBlock,
 } from '@/lib/learn-queries'
 import { useIsEditor } from '@/hooks/useIsEditor'
+import { useAuth } from '@/contexts/AuthProvider'
 import { LearningBlockRenderer } from '@/components/learn/LearningBlockRenderer'
 import { LearnRightPanel } from '@/components/learn/LearnRightPanel'
 import { AddBlockMenu } from '@/components/learn/AddBlockMenu'
@@ -65,6 +66,7 @@ export default function LearnPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = (searchParams.get('tab') ?? 'start') as 'start' | 'levelup' | 'progress'
   const isEditor = useIsEditor()
+  const { session } = useAuth()
 
   const [activeSkillId, setActiveSkillId] = useState<string | null>(skillIdParam ?? null)
   const [data, setData] = useState<PageData | null | 'missing' | 'empty'>(null)
@@ -105,10 +107,11 @@ export default function LearnPage() {
     touchSkillLastOpened(activeSkillId)
   }, [activeSkillId])
 
-  // ── Fetch the Learning column once ──
+  // ── Fetch all user skills for the side panel ──
   useEffect(() => {
-    getUserLearningSkills().then(setLearningSkills)
-  }, [])
+    if (!session?.user?.id) return
+    getAllUserSkills(session.user.id).then(setLearningSkills)
+  }, [session?.user?.id])
 
   const switchSkill = (id: string) => navigate(`/dashboard/learn/${id}`)
 

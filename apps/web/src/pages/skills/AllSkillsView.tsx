@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   List,
   LayoutGrid,
@@ -7,7 +8,7 @@ import {
   SlidersHorizontal,
   ArrowLeft,
   ListFilter,
-  ChevronRight,
+  ArrowUpRight,
   Pin,
   Trash2,
 } from "lucide-react";
@@ -67,6 +68,7 @@ export default function AllSkillsView({
 }) {
   const { session } = useAuth();
   const [skills, setSkills] = useState<EnrichedSkill[]>([]);
+  const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem("skills-view-mode");
@@ -168,6 +170,32 @@ export default function AllSkillsView({
       });
 
     setSkills(enriched);
+
+    // Batch-load progress for all skill cards
+    const { data: items } = await supabase
+      .from('skill_progress_items')
+      .select('id, skill_node_id')
+      .in('skill_node_id', ids)
+    if (items?.length) {
+      const itemIds = items.map((i: any) => i.id)
+      const { data: checks } = await supabase
+        .from('user_progress_checks')
+        .select('item_id')
+        .in('item_id', itemIds)
+      const checkedSet = new Set((checks ?? []).map((c: any) => c.item_id))
+      const totalMap = new Map<string, number>()
+      const checkedCount = new Map<string, number>()
+      for (const item of items) {
+        totalMap.set(item.skill_node_id, (totalMap.get(item.skill_node_id) ?? 0) + 1)
+        if (checkedSet.has(item.id))
+          checkedCount.set(item.skill_node_id, (checkedCount.get(item.skill_node_id) ?? 0) + 1)
+      }
+      const pct = new Map<string, number>()
+      for (const [skillId, total] of totalMap)
+        pct.set(skillId, Math.round((checkedCount.get(skillId) ?? 0) / total * 100))
+      setProgressMap(pct)
+    }
+
     setLoading(false);
   }, [session]);
 
@@ -470,12 +498,12 @@ export default function AllSkillsView({
         <KanbanView
           skills={filtered}
           onEdit={openEdit}
-          onAdvance={handleAdvance}
           onTogglePin={handleTogglePin}
           dragSkillId={dragSkill?.skill_node_id ?? null}
           dropTarget={dropTarget}
           onDragStart={handleDragStart}
           onRegisterCol={registerCol}
+          progressMap={progressMap}
         />
       )}
     </div>
@@ -634,21 +662,21 @@ function ListView({
 function KanbanView({
   skills,
   onEdit,
-  onAdvance,
   onTogglePin,
   dragSkillId,
   dropTarget,
   onDragStart,
   onRegisterCol,
+  progressMap,
 }: {
   skills: EnrichedSkill[];
   onEdit: (node: SkillNode, index: number) => void;
-  onAdvance: (skillNodeId: string, currentStatus: Status) => void;
   onTogglePin: (skillNodeId: string, currentPinned: boolean) => void;
   dragSkillId: string | null;
   dropTarget: { colKey: Status; rowIndex: number } | null;
   onDragStart: (skill: EnrichedSkill, e: React.PointerEvent) => void;
   onRegisterCol: (key: Status, el: HTMLDivElement | null) => void;
+  progressMap: Map<string, number>;
 }) {
   return (
     <div className="grid flex-1 min-h-0 overflow-hidden grid-cols-4 gap-3">
@@ -681,11 +709,10 @@ function KanbanView({
                 skill={skill}
                 index={i}
                 onEdit={onEdit}
-                onAdvance={onAdvance}
                 onTogglePin={onTogglePin}
-                isLast={col.key === COLUMNS[COLUMNS.length - 1].key}
                 isDragSource={dragSkillId === skill.skill_node_id}
                 onDragStart={onDragStart}
+                progressPct={progressMap.get(skill.skill_node_id) ?? 0}
               />
             );
           }
@@ -731,21 +758,20 @@ function KanbanCard({
   skill,
   index,
   onEdit,
-  onAdvance,
   onTogglePin,
-  isLast,
   isDragSource,
   onDragStart,
+  progressPct,
 }: {
   skill: EnrichedSkill;
   index: number;
   onEdit: (node: SkillNode, index: number) => void;
-  onAdvance: (skillNodeId: string, currentStatus: Status) => void;
   onTogglePin: (skillNodeId: string, currentPinned: boolean) => void;
-  isLast: boolean;
   isDragSource: boolean;
   onDragStart: (skill: EnrichedSkill, e: React.PointerEvent) => void;
+  progressPct: number;
 }) {
+  const navigate = useNavigate();
   return (
     <div
       data-kanban-card
@@ -783,24 +809,18 @@ function KanbanCard({
         >
           {skill.node.name}
         </p>
-        <div className="mt-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-400">Progress</span>
-            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 -rotate-90">
-              <circle cx="12" cy="12" r="8" stroke="#e5e7eb" strokeWidth="2.5" />
-              <circle cx="12" cy="12" r="8" stroke="#7c3aed" strokeWidth="2.5"
-                strokeLinecap="round" strokeDasharray="20 30.3" />
-            </svg>
+        <div className="mt-2.5 flex items-center gap-2 pt-1 pb-0.5">
+          <span className="shrink-0 text-xs text-gray-400">Progress</span>
+          <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
+            <div className="h-full rounded-full bg-gray-900 transition-all duration-300" style={{ width: `${progressPct}%` }} />
           </div>
-          {!isLast && (
-            <button
-              onClick={() => onAdvance(skill.skill_node_id, skill.status)}
-              className="cursor-pointer rounded-full border border-gray-200 p-1 text-gray-400 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600"
-              title="Move to next column"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          )}
+          <button
+            onClick={e => { e.stopPropagation(); navigate(`/dashboard/learn/${skill.skill_node_id}`) }}
+            className="cursor-pointer shrink-0 rounded-full border border-gray-200 p-1 text-gray-400 transition hover:border-gray-900 hover:text-gray-900"
+            title="Go to learn page"
+          >
+            <ArrowUpRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>
