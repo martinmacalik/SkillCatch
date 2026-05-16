@@ -1,51 +1,26 @@
 import { ArrowLeft } from "lucide-react";
 import Logo from "../assets/Logo.png";
-import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useState, useEffect, useRef } from "react";
+import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
 
 export default function SignUp() {
   return (
     <div className="relative min-h-screen bg-white flex items-center justify-center min-[1095px]:p-6">
       {/* Mobile-only: full-screen gradient background */}
       <div className="absolute inset-0 min-[1095px]:hidden overflow-hidden">
-        <ShaderGradientCanvas
-          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-        >
+        <ShaderGradientCanvas style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
           <ShaderGradient
-            animate="on"
-            brightness={1.1}
-            cAzimuthAngle={180}
-            cDistance={3.6}
-            cPolarAngle={90}
-            cameraZoom={1}
-            color1="#ff8682"
-            color2="#db8edb"
-            color3="#8c8de1"
-            envPreset="city"
-            grain="on"
-            lightType="3d"
-            positionX={-1.4}
-            positionY={0}
-            positionZ={0}
-            range="disabled"
-            rangeEnd={40}
-            rangeStart={0}
-            reflection={0.1}
-            rotationX={0}
-            rotationY={10}
-            rotationZ={50}
-            shader="defaults"
-            type="plane"
-            uAmplitude={1}
-            uDensity={1.3}
-            uFrequency={5.5}
-            uSpeed={0.2}
-            uStrength={4}
-            uTime={0}
-            wireframe={false}
-            zoomOut={false}
+            animate="on" brightness={1.1} cAzimuthAngle={180} cDistance={3.6} cPolarAngle={90} cameraZoom={1}
+            color1="#ff8682" color2="#db8edb" color3="#8c8de1"
+            envPreset="city" grain="on" lightType="3d"
+            positionX={-1.4} positionY={0} positionZ={0}
+            range="disabled" rangeEnd={40} rangeStart={0} reflection={0.1}
+            rotationX={0} rotationY={10} rotationZ={50}
+            shader="defaults" type="plane"
+            uAmplitude={1} uDensity={1.3} uFrequency={5.5} uSpeed={0.2} uStrength={4} uTime={0}
+            wireframe={false} zoomOut={false}
           />
         </ShaderGradientCanvas>
       </div>
@@ -65,75 +40,21 @@ function LeftPanel() {
   return (
     // Left side with ShaderGradient background — hidden on mobile
     <div className="hidden min-[1095px]:block relative min-[1095px]:w-1/2 min-[1095px]:rounded-[55px] overflow-hidden">
-      {/* ShaderGradient background */}
       <div className="absolute inset-0">
-        <ShaderGradientCanvas
-          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-        >
+        <ShaderGradientCanvas style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
           <ShaderGradient
-            animate="on"
-            brightness={1.1}
-            cAzimuthAngle={180}
-            cDistance={3.6}
-            cPolarAngle={90}
-            cameraZoom={1}
-            color1="#ff8682"
-            color2="#db8edb"
-            color3="#8c8de1"
-            envPreset="city"
-            grain="on"
-            lightType="3d"
-            positionX={-1.4}
-            positionY={0}
-            positionZ={0}
-            range="disabled"
-            rangeEnd={40}
-            rangeStart={0}
-            reflection={0.1}
-            rotationX={0}
-            rotationY={10}
-            rotationZ={50}
-            shader="defaults"
-            type="plane"
-            uAmplitude={1}
-            uDensity={1.3}
-            uFrequency={5.5}
-            uSpeed={0.2}
-            uStrength={4}
-            uTime={0}
-            wireframe={false}
-            zoomOut={false}
+            animate="on" brightness={1.1} cAzimuthAngle={180} cDistance={3.6} cPolarAngle={90} cameraZoom={1}
+            color1="#ff8682" color2="#db8edb" color3="#8c8de1"
+            envPreset="city" grain="on" lightType="3d"
+            positionX={-1.4} positionY={0} positionZ={0}
+            range="disabled" rangeEnd={40} rangeStart={0} reflection={0.1}
+            rotationX={0} rotationY={10} rotationZ={50}
+            shader="defaults" type="plane"
+            uAmplitude={1} uDensity={1.3} uFrequency={5.5} uSpeed={0.2} uStrength={4} uTime={0}
+            wireframe={false} zoomOut={false}
           />
         </ShaderGradientCanvas>
       </div>
-
-      {/* Grainient background
-      <div className="absolute inset-0 scale-150 md:scale-100">
-        <Grainient
-          color1="#c7335f"
-          color2="#6f53df"
-          color3="#ac36e2"
-          timeSpeed={0.25}
-          colorBalance={0}
-          warpStrength={2.3}
-          warpFrequency={5}
-          warpSpeed={6}
-          warpAmplitude={50}
-          blendAngle={0}
-          blendSoftness={0.05}
-          rotationAmount={0}
-          noiseScale={2}
-          grainAmount={0.12}
-          grainScale={2}
-          grainAnimated={false}
-          contrast={1.5}
-          gamma={1}
-          saturation={1}
-          centerX={0}
-          centerY={0}
-          zoom={0.9}
-        />
-      </div> */}
 
       {/* Logo top-left */}
       <img src={Logo} alt="SkillCatch" className="absolute top-10 left-10 h-10 w-auto z-10" />
