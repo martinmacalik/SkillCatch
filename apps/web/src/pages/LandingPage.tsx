@@ -2,6 +2,7 @@ import { useRef, useEffect, useLayoutEffect, useState, type ReactNode } from 're
 import { ChevronRight } from 'lucide-react';
 import AppScreen from '../assets/AppScreen4x.png';
 import LogoColored from '../assets/LogoColored.png';
+import SkillInfoScreen from '../assets/SkillInfoScreen.png';
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from '../contexts/AuthProvider';
 
@@ -81,9 +82,9 @@ function Navbar() {
       {/* Right: actions */}
       <div className="flex items-center gap-3 md:gap-6">
         <Link to="/signin" className="text-sm md:text-base text-black font-medium hover:text-gray-500 transition-colors duration-200 ease-in-out">Sign In</Link>
-        <button className="cursor-pointer rounded-2xl bg-gray-900 text-white px-5 py-2.5 text-m font-medium hover:-translate-y-0.5 transition-transform duration-200 ease-in-out inline-block group">
-          Get started <ChevronRight className="h-4 w-4 inline-flex -translate-y-0.5 group-hover:translate-x-1 transition-transform duration-200 ease-in-out" aria-hidden="true" />
-        </button>
+        <Link to="/signin" className="cursor-pointer rounded-2xl bg-gray-900 text-white px-5 py-2.5 text-m font-medium hover:-translate-y-0.5 transition-transform duration-200 ease-in-out inline-flex items-center gap-1 group">
+          Get started <ChevronRight className="h-4 w-4 -translate-y-px group-hover:translate-x-1 transition-transform duration-200 ease-in-out" aria-hidden="true" />
+        </Link>
       </div>
     </header>
   );
@@ -108,10 +109,10 @@ function Hero() {
           Unlock your potential and take the next step.
         </p>
 
-        <div className="w-55 mt-6 bg-linear-to-r from-[#688DE0] to-[#D2608C] p-1 rounded-2xl inline-block">
-          <button className="cursor-pointer w-full rounded-2xl bg-gray-900 text-white px-5 py-2.5 text-m font-medium hover:-translate-y-px transition-transform duration-200 ease-in-out inline-block group">
-            Get started for free <ChevronRight className="h-4 w-4 inline-flex -translate-y-0.5 group-hover:translate-x-1 transition-transform duration-200 ease-in-out" aria-hidden="true" />
-          </button>
+        <div className="mt-6 w-fit bg-linear-to-r from-[#688DE0] to-[#D2608C] p-1 rounded-2xl">
+          <Link to="/signin" className="cursor-pointer whitespace-nowrap rounded-xl bg-gray-900 text-white px-5 py-2.5 text-m font-medium hover:-translate-y-px transition-transform duration-200 ease-in-out inline-flex items-center gap-1 group">
+            Get started for free <ChevronRight className="h-4 w-4 -translate-y-px group-hover:translate-x-1 transition-transform duration-200 ease-in-out" aria-hidden="true" />
+          </Link>
         </div>
       </div>
     </section>
@@ -269,8 +270,8 @@ function GamificationSection() {
             </div>
           </FadeUp>
           <FadeUp delay={150}>
-            <div className="bg-gray-50 rounded-3xl aspect-square flex items-center justify-center">
-              <span className="text-gray-400 text-sm font-medium tracking-wide">Community Preview</span>
+            <div className="bg-gray-50 rounded-3xl overflow-hidden flex items-center justify-center p-6">
+              <img src={SkillInfoScreen} alt="Skill info screen" className="w-full max-w-sm h-auto rounded-2xl shadow-lg" />
             </div>
           </FadeUp>
         </div>

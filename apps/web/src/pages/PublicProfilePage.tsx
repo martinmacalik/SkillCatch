@@ -163,6 +163,7 @@ export default function PublicProfilePage() {
   const displayName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.username || 'User'
 
   return (
+    <div className="min-h-screen bg-white">
     <div className="mx-auto max-w-2xl px-4 py-10">
       {/* Header */}
       <div className="mb-8 flex items-center gap-5">
@@ -193,6 +194,7 @@ export default function PublicProfilePage() {
           </p>
         )}
       </div>
+    </div>
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   MessageSquare,
-  Grid3x3,
+  Wrench,
   BookOpen,
   Compass,
   LogOut,
@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabaseClient'
 const navItems: { icon: LucideIcon; to: string; end?: boolean }[] = [
   { icon: LayoutDashboard, to: '/dashboard',          end: true },
   { icon: MessageSquare,   to: '/dashboard/chats' },
-  { icon: Grid3x3,         to: '/dashboard/skills' },
+  { icon: Wrench,          to: '/dashboard/skills' },
   { icon: BookOpen,        to: '/dashboard/learn' },
   { icon: Compass,         to: '/dashboard/discover' },
 ]

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle, HelpCircle, BookOpen, GitBranch, ArrowRight } from 'lucide-react'
+import { CheckCircle, HelpCircle, BookOpen, GitBranch, ArrowRight, Coins } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthProvider'
@@ -193,8 +193,8 @@ export default function HelpPage() {
         <SupportForm />
       </div>
 
-      {/* ── Row 2: About + Skill Feedback ── */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+      {/* ── Row 2: About + Skillcoins + Skill Feedback ── */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
 
         {/* About SkillCatch */}
         <div className="rounded-2xl bg-white p-6">
@@ -230,6 +230,42 @@ export default function HelpPage() {
               <p className="text-sm leading-relaxed text-gray-500">
                 Browse structured learning paths through the Learn and Discover sections.
                 More content will be added here once the feature is live.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Skillcoins */}
+        <div className="rounded-2xl bg-white p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50">
+              <Coins className="h-5 w-5 text-amber-500" />
+            </span>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Skillcoins</h2>
+              <p className="text-sm text-gray-400">Your learning currency</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-5">
+            <div>
+              <p className="mb-1 text-sm font-semibold text-gray-800">What are Skillcoins?</p>
+              <p className="text-sm leading-relaxed text-gray-500">
+                Skillcoins are SkillCatch's reward currency. You earn them by making progress — completing skills, logging practice, hitting milestones, and maintaining learning streaks.
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-1 text-sm font-semibold text-gray-800">How do I earn them?</p>
+              <p className="text-sm leading-relaxed text-gray-500">
+                Coins are awarded automatically as you learn. Adding a skill, advancing its status, and maintaining a daily streak all contribute to your balance.
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-1 text-sm font-semibold text-gray-800">What can I spend them on?</p>
+              <p className="text-sm leading-relaxed text-gray-500">
+                Spending options — unlocking resources, mentor sessions, and exclusive content — are coming soon as the platform grows.
               </p>
             </div>
           </div>

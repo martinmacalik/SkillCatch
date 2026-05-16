@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   LayoutDashboard,
   MessageSquare,
-  Grid3x3,
+  Wrench,
   BookOpen,
   Compass,
   Settings,
@@ -19,7 +19,7 @@ import TextLogoBlack from '@/assets/TextLogoColor.png'
 const menuItems: { icon: LucideIcon; label: string; to: string }[] = [
   { icon: LayoutDashboard, label: 'Overview',  to: '/dashboard' },
   { icon: MessageSquare,   label: 'Chats',     to: '/dashboard/chats' },
-  { icon: Grid3x3,         label: 'Skills',    to: '/dashboard/skills' },
+  { icon: Wrench,          label: 'Skills',    to: '/dashboard/skills' },
   { icon: BookOpen,        label: 'Learn',     to: '/dashboard/learn' },
   { icon: Compass,         label: 'Discover',  to: '/dashboard/discover' },
 ]
