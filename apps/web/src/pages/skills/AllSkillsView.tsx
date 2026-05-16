@@ -235,20 +235,6 @@ export default function AllSkillsView({
     );
   }, [session]);
 
-  const handleAdvance = useCallback(async (skillNodeId: string, currentStatus: Status) => {
-    const colIndex = COLUMNS.findIndex((c) => c.key === currentStatus);
-    if (colIndex === -1 || colIndex >= COLUMNS.length - 1) return;
-    const nextStatus = COLUMNS[colIndex + 1].key;
-    await supabase
-      .from("user_skills")
-      .update({ status: nextStatus })
-      .eq("user_id", session!.user!.id)
-      .eq("skill_node_id", skillNodeId);
-    setSkills((prev) =>
-      prev.map((s) => (s.skill_node_id === skillNodeId ? { ...s, status: nextStatus } : s))
-    );
-  }, [session]);
-
   // Removes skill(s) from the user's profile. Deletes both user_skills and the
   // associated user_skill_attributes (no FK cascade, so attributes would
   // otherwise be orphaned). Used for both single delete (modal) and bulk delete.

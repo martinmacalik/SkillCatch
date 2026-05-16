@@ -32,8 +32,6 @@ export function LearningSkillsList({
   const [activeColumn, setActiveColumn] = useState<UserSkillStatus>('learning')
 
   const visible = skills.filter(s => s.status === activeColumn)
-  const col = COLUMNS.find(c => c.key === activeColumn)!
-
   return (
     <div className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-4">
       <h3 className="text-sm font-bold text-black">Your Skills</h3>
