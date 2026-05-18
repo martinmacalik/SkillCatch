@@ -5,6 +5,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { requestsRouter } from './routes/requests';
 import { messagesRouter } from './routes/messages';
 import { auditRouter } from './routes/audit';
+import { suggestionsRouter } from './routes/suggestions';
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 app.use('/requests', requestsRouter);
 app.use('/messages', messagesRouter);
 app.use('/audit', auditRouter);
+app.use('/suggestions', suggestionsRouter);
 
 app.use(errorHandler);
 

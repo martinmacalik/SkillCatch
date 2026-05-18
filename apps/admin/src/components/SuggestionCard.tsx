@@ -1,15 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { api } from '../lib/api';
 import { StatusBadge } from './StatusBadge';
+import type { LearningSuggestion } from '../types/api';
 
 type BlockType = 'heading' | 'text' | 'callout' | 'resource_list' | 'flashcards' | 'checklist';
-
-interface ProposedBlock {
-  id?: string;
-  type: BlockType;
-  content: Record<string, unknown>;
-  sort_order: number;
-}
 
 interface LiveBlock {
   id: string;
@@ -18,19 +13,7 @@ interface LiveBlock {
   sort_order: number;
 }
 
-export interface LearningSuggestion {
-  id: string;
-  skill_node_id: string;
-  submitted_by: string;
-  proposed_blocks: ProposedBlock[];
-  message: string | null;
-  status: 'pending' | 'approved' | 'denied';
-  deny_reason: string | null;
-  reviewed_at: string | null;
-  created_at: string;
-  skill_name: string | null;
-  submitter_username: string | null;
-}
+export type { LearningSuggestion };
 
 const BLOCK_LABELS: Record<string, string> = {
   heading: 'Heading',
@@ -79,57 +62,6 @@ async function fetchLiveBlocks(skillNodeId: string): Promise<LiveBlock[]> {
   return (blocks ?? []) as LiveBlock[];
 }
 
-async function applyApproval(suggestion: LearningSuggestion, liveBlocks: LiveBlock[]): Promise<void> {
-  const { data: existing } = await supabase
-    .from('skill_learning_pages')
-    .select('id')
-    .eq('skill_node_id', suggestion.skill_node_id)
-    .maybeSingle();
-
-  let pageId: string;
-  if (existing) {
-    pageId = existing.id;
-  } else {
-    const { data: created, error: createErr } = await supabase
-      .from('skill_learning_pages')
-      .insert({ skill_node_id: suggestion.skill_node_id })
-      .select('id')
-      .single();
-    if (createErr) throw new Error(createErr.message);
-    pageId = created.id;
-  }
-
-  const currentIds = new Set(liveBlocks.map(b => b.id));
-  const keptIds = new Set(suggestion.proposed_blocks.filter(b => b.id).map(b => b.id as string));
-
-  const toDelete = [...currentIds].filter(id => !keptIds.has(id));
-  if (toDelete.length > 0) {
-    const { error } = await supabase.from('skill_learning_blocks').delete().in('id', toDelete);
-    if (error) throw new Error(error.message);
-  }
-
-  for (const block of suggestion.proposed_blocks) {
-    if (block.id && currentIds.has(block.id)) {
-      const { error } = await supabase
-        .from('skill_learning_blocks')
-        .update({ type: block.type, content: block.content, sort_order: block.sort_order })
-        .eq('id', block.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supabase
-        .from('skill_learning_blocks')
-        .insert({ page_id: pageId, type: block.type, content: block.content, sort_order: block.sort_order });
-      if (error) throw new Error(error.message);
-    }
-  }
-
-  const { error: markErr } = await supabase
-    .from('skill_learning_suggestions')
-    .update({ status: 'approved', reviewed_at: new Date().toISOString() })
-    .eq('id', suggestion.id);
-  if (markErr) throw new Error(markErr.message);
-}
-
 interface Props {
   suggestion: LearningSuggestion;
   onUpdate: (id: string, patch: Partial<LearningSuggestion>) => void;
@@ -144,7 +76,6 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch live blocks lazily when first expanded
   useEffect(() => {
     if (!expanded || liveBlocks !== null) return;
     setLoadingDiff(true);
@@ -158,8 +89,8 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
     setLoading(true);
     setError(null);
     try {
-      await applyApproval(suggestion, liveBlocks ?? []);
-      onUpdate(suggestion.id, { status: 'approved', reviewed_at: new Date().toISOString() });
+      const updated = await api.approveSuggestion(suggestion.id);
+      onUpdate(suggestion.id, { status: updated.status, reviewed_at: updated.reviewed_at });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unexpected error');
     } finally {
@@ -172,12 +103,8 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const { error: err } = await supabase
-        .from('skill_learning_suggestions')
-        .update({ status: 'denied', deny_reason: denyReason.trim(), reviewed_at: new Date().toISOString() })
-        .eq('id', suggestion.id);
-      if (err) throw new Error(err.message);
-      onUpdate(suggestion.id, { status: 'denied', deny_reason: denyReason.trim(), reviewed_at: new Date().toISOString() });
+      const updated = await api.denySuggestion(suggestion.id, denyReason.trim());
+      onUpdate(suggestion.id, { status: updated.status, deny_reason: updated.deny_reason, reviewed_at: updated.reviewed_at });
       setDenyMode(false);
       setDenyReason('');
     } catch (e) {
@@ -187,13 +114,11 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
     }
   };
 
-  // Compute diff once live blocks are loaded
-  const proposedIds = new Set(suggestion.proposed_blocks.filter(b => b.id).map(b => b.id as string));
-  const deletedBlocks = (liveBlocks ?? []).filter(b => !proposedIds.has(b.id));
+  const proposedIds = new Set(suggestion.proposed_blocks.filter((b) => b.id).map((b) => b.id as string));
+  const deletedBlocks = (liveBlocks ?? []).filter((b) => !proposedIds.has(b.id));
 
   return (
     <div className="border border-neutral-800 bg-[#111] rounded-lg p-4 space-y-3">
-      {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -209,14 +134,13 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
           </p>
         </div>
         <button
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => setExpanded((e) => !e)}
           className="text-neutral-500 hover:text-white text-xs shrink-0 transition-colors"
         >
           {expanded ? 'collapse' : 'expand'}
         </button>
       </div>
 
-      {/* Expanded detail */}
       {expanded && (
         <div className="space-y-3">
           {suggestion.message && (
@@ -229,38 +153,30 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
           )}
 
           <div className="bg-[#0d0d0d] border border-neutral-800 rounded-lg p-3">
-            <p className="text-neutral-600 text-[10px] uppercase tracking-wide mb-2">
-              Block diff
-            </p>
+            <p className="text-neutral-600 text-[10px] uppercase tracking-wide mb-2">Block diff</p>
 
             {loadingDiff ? (
               <p className="text-neutral-600 text-xs">Loading current blocks…</p>
             ) : (
               <div className="space-y-1">
-                {/* Deleted blocks — in live but not in proposal */}
-                {deletedBlocks.map(block => (
+                {deletedBlocks.map((block) => (
                   <div key={block.id} className="flex items-start gap-2 rounded bg-rose-500/10 border-l-2 border-rose-500/50 px-2 py-1">
                     <span className="shrink-0 mt-0.5 text-rose-500 text-[10px] font-bold">−</span>
                     <span className="shrink-0 mt-0.5 bg-rose-500/20 text-rose-400 text-[10px] px-1.5 py-0.5 rounded font-mono">
                       {BLOCK_LABELS[block.type] ?? block.type}
                     </span>
-                    <span className="text-rose-400 text-xs truncate line-through opacity-70">
-                      {blockPreview(block)}
-                    </span>
+                    <span className="text-rose-400 text-xs truncate line-through opacity-70">{blockPreview(block)}</span>
                     <span className="shrink-0 text-rose-500 text-[10px] font-semibold ml-auto">deleted</span>
                   </div>
                 ))}
 
-                {/* Proposed blocks — new or kept */}
                 {suggestion.proposed_blocks.map((block, i) => {
                   const isNew = !block.id;
                   return (
                     <div
                       key={block.id ?? i}
                       className={`flex items-start gap-2 rounded px-2 py-1 ${
-                        isNew
-                          ? 'bg-emerald-500/10 border-l-2 border-emerald-500/50'
-                          : 'border-l-2 border-transparent'
+                        isNew ? 'bg-emerald-500/10 border-l-2 border-emerald-500/50' : 'border-l-2 border-transparent'
                       }`}
                     >
                       <span className={`shrink-0 mt-0.5 text-[10px] font-bold ${isNew ? 'text-emerald-500' : 'text-neutral-700'}`}>
@@ -274,9 +190,7 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
                       <span className={`text-xs truncate ${isNew ? 'text-emerald-300' : 'text-neutral-400'}`}>
                         {blockPreview(block)}
                       </span>
-                      {isNew && (
-                        <span className="shrink-0 text-emerald-500 text-[10px] font-semibold ml-auto">new</span>
-                      )}
+                      {isNew && <span className="shrink-0 text-emerald-500 text-[10px] font-semibold ml-auto">new</span>}
                     </div>
                   );
                 })}
@@ -288,16 +202,13 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
                   <p className="text-neutral-600 text-xs italic mt-1">All blocks removed — page would be empty</p>
                 )}
 
-                {/* Legend */}
-                {(deletedBlocks.length > 0 || suggestion.proposed_blocks.some(b => !b.id)) && (
+                {(deletedBlocks.length > 0 || suggestion.proposed_blocks.some((b) => !b.id)) && (
                   <div className="flex gap-4 mt-2 pt-2 border-t border-neutral-800">
                     <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
-                      <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500/40 border-l border-emerald-500" />
-                      new
+                      <span className="inline-block w-2 h-2 rounded-sm bg-emerald-500/40 border-l border-emerald-500" /> new
                     </span>
                     <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
-                      <span className="inline-block w-2 h-2 rounded-sm bg-rose-500/40 border-l border-rose-500" />
-                      deleted
+                      <span className="inline-block w-2 h-2 rounded-sm bg-rose-500/40 border-l border-rose-500" /> deleted
                     </span>
                     <span className="flex items-center gap-1.5 text-[10px] text-neutral-500">
                       <span className="text-neutral-600">·</span> kept
@@ -335,7 +246,7 @@ export function SuggestionCard({ suggestion, onUpdate }: Props) {
         <div className="space-y-2">
           <textarea
             value={denyReason}
-            onChange={e => setDenyReason(e.target.value)}
+            onChange={(e) => setDenyReason(e.target.value)}
             placeholder="Reason for denial (required)"
             className="w-full bg-[#0d0d0d] border border-neutral-700 text-white text-xs rounded p-2 resize-none h-20 placeholder-neutral-600 focus:outline-none focus:border-neutral-500"
           />

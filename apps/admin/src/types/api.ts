@@ -53,6 +53,21 @@ export interface AuditLogEntry {
   actor?: Profile | null;
 }
 
+export interface LearningSuggestion {
+  id: string;
+  skill_node_id: string;
+  submitted_by: string;
+  proposed_blocks: Array<{ id?: string; type: string; content: Record<string, unknown>; sort_order: number }>;
+  message: string | null;
+  status: 'pending' | 'approved' | 'denied';
+  deny_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  skill_name: string | null;
+  submitter_username: string | null;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number | null;

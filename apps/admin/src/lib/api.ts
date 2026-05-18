@@ -3,6 +3,7 @@ import type {
   RestructureRequest,
   SupportMessage,
   AuditLogEntry,
+  LearningSuggestion,
   PaginatedResponse,
 } from '../types/api';
 
@@ -68,6 +69,23 @@ export const api = {
 
   openMessage: (id: string) =>
     apiFetch<SupportMessage>(`/messages/${id}/open`, { method: 'POST' }),
+
+  getSuggestions: (params?: { status?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    return apiFetch<PaginatedResponse<LearningSuggestion>>(`/suggestions?${q}`);
+  },
+
+  approveSuggestion: (id: string) =>
+    apiFetch<LearningSuggestion>(`/suggestions/${id}/approve`, { method: 'POST' }),
+
+  denySuggestion: (id: string, deny_reason: string) =>
+    apiFetch<LearningSuggestion>(`/suggestions/${id}/deny`, {
+      method: 'POST',
+      body: JSON.stringify({ deny_reason }),
+    }),
 
   getAuditLog: (params?: { entity_type?: string; page?: number }) => {
     const q = new URLSearchParams();
