@@ -15,9 +15,10 @@
 6. [Skillcoin economy](#6-skillcoin-economy)
 7. [Restructure requests](#7-restructure-requests)
 8. [Support & admin](#8-support--admin)
-9. [Storage buckets](#9-storage-buckets)
-10. [RPC functions](#10-rpc-functions)
-11. [Entity-relationship overview](#11-entity-relationship-overview)
+9. [Chat](#9-chat)
+10. [Storage buckets](#10-storage-buckets)
+11. [RPC functions](#11-rpc-functions)
+12. [Entity-relationship overview](#12-entity-relationship-overview)
 
 ---
 
@@ -430,7 +431,77 @@ Immutable log of admin actions (approvals, denials, node changes).
 
 ---
 
-## 9. Storage buckets
+## 9. Chat
+
+Migration: `20261011001_chat.sql`. Supports 1:1 and group conversations, chat requests, text / image / skill / system messages, editing and soft delete.
+
+**Security model:** `messages` are read and written directly through RLS. `conversations` and `conversation_participants` are readable through RLS but writable **only through RPC functions** (no INSERT/UPDATE/DELETE policies, write privileges revoked).
+
+### `conversations`
+One conversation, either direct (1:1) or group.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `type` | text | `direct` \| `group` |
+| `title` | text | group only, 1–100 chars; must be NULL for `direct` |
+| `direct_key` | text UNIQUE | direct only: `'<smaller uuid>:<bigger uuid>'`, guarantees max one 1:1 chat per pair |
+| `created_by` | uuid → `auth.users` | SET NULL on delete |
+| `last_message_at` | timestamptz | maintained by trigger on `messages` insert; used to sort the chat list |
+| `created_at` / `updated_at` | timestamptz | |
+
+**RLS:** Visible to every participant (including `pending`, so the request shows up).
+
+---
+
+### `conversation_participants`
+Membership, role and chat-request status.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `conversation_id` | uuid → `conversations` | PK part, CASCADE |
+| `user_id` | uuid → `auth.users` | PK part, CASCADE |
+| `role` | text | `owner` \| `admin` \| `member` (direct chats: always `member`) |
+| `status` | text | `pending` (request not accepted; cannot read/send messages) \| `accepted` |
+| `joined_at` | timestamptz | invite time, reset on accept |
+| `last_read_at` | timestamptz | set by `mark_conversation_read()` |
+
+**Index:** `(user_id)` for "my conversations".
+**RLS:** Participants see the other participants of their conversations.
+**Trigger (after delete):** if no accepted participant remains, the conversation is deleted; if the group owner left, the oldest admin (else oldest member) becomes owner.
+
+---
+
+### `messages`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `conversation_id` | uuid → `conversations` | CASCADE |
+| `sender_id` | uuid → `auth.users` | defaults to `auth.uid()`; NULL for system messages / deleted accounts (SET NULL) |
+| `type` | text | `text` \| `image` \| `skill` \| `system` |
+| `body` | text | ≤ 4000 chars; message text, image caption or skill comment |
+| `image_path` | text | path in `chat-media` bucket, must be `{conversation_id}/{sender_id}/…` |
+| `skill_node_id` | uuid → `skill_nodes` | shared skill; SET NULL on delete (required on insert for `skill`, enforced by trigger) |
+| `metadata` | jsonb | system messages only, e.g. `{"event":"member_added","actor_id":…,"target_id":…}` |
+| `created_at` | timestamptz | |
+| `edited_at` | timestamptz | NULL = never edited; set by trigger when `body` changes |
+| `deleted_at` | timestamptz | NULL = not deleted; content columns are wiped on delete |
+
+**Index:** `(conversation_id, created_at DESC)` for loading/paging; FK indexes on `sender_id`, `skill_node_id`.
+**RLS:** Only `accepted` members read. Members insert as themselves (`type` ≠ `system`). Authors update their own non-deleted, non-system messages.
+**Column privileges:** clients may INSERT only `id, conversation_id, sender_id, type, body, image_path, skill_node_id` and UPDATE only `body`.
+**System message events:** `group_created`, `renamed`, `member_added`, `member_joined`, `member_removed`, `member_left`, `role_changed`.
+
+**RLS helpers** (SECURITY DEFINER, avoid policy recursion on `conversation_participants`):
+- `is_conversation_participant(conversation_id)`: caller is in the conversation (any status)
+- `is_conversation_member(conversation_id)`: caller is in the conversation with `status = 'accepted'`
+
+**Realtime:** `messages` and `conversation_participants` are in the `supabase_realtime` publication.
+
+---
+
+## 10. Storage buckets
 
 ### `avatars`
 | Setting | Value |
@@ -456,9 +527,23 @@ Used by profile builder cards (photos and CV PDFs).
 
 ---
 
-## 10. RPC functions
+### `chat-media`
+Images sent in chat messages.
 
-All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed.
+| Setting | Value |
+|---------|-------|
+| Visibility | **Private** (use `createSignedUrl`) |
+| Max file size | 5 MB |
+| Allowed MIME types | `image/jpeg`, `image/png`, `image/webp`, `image/gif` |
+| Path convention | `{conversation_id}/{user_id}/{filename}` |
+
+Read: accepted members of the conversation (`can_access_chat_media()`). Upload: accepted members, own subfolder only. Delete: the uploader.
+
+---
+
+## 11. RPC functions
+
+All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed (except internal `_`-prefixed chat helpers, which are SECURITY INVOKER and not executable by clients).
 
 | Function | Description |
 |----------|-------------|
@@ -473,10 +558,23 @@ All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed.
 | `is_editor()` | Returns `true` if the current user has `admin` or `editor` role. Used by RLS policies. |
 | `_apply_move_tree(p_nodes)` | Internal helper: walks a proposal node tree, applies renames/deletions recursively. |
 | `_apply_move_new_nodes(p_parent_id, p_nodes)` | Internal helper: creates new nodes under a given parent, inheriting its path. |
+| `get_or_create_direct_conversation(p_other_user_id)` | Returns the existing 1:1 chat or creates it (caller `accepted`, other user `pending`). |
+| `create_group_conversation(p_title, p_member_ids?)` | Creates a group; caller = `owner`, invited users = `pending`. |
+| `accept_conversation(p_conversation_id)` | Accepts a chat request (`pending` → `accepted`). |
+| `decline_conversation(p_conversation_id)` | Declines a request: deletes the whole direct chat, or only the caller's group invite. |
+| `rename_conversation(p_conversation_id, p_title)` | Renames a group. Owner/admin. |
+| `add_conversation_members(p_conversation_id, p_user_ids)` | Invites users to a group (`pending`). Owner/admin. |
+| `remove_conversation_member(p_conversation_id, p_user_id)` | Removes a participant. Admin → members only; owner → anyone. |
+| `set_participant_role(p_conversation_id, p_user_id, p_role)` | Changes role; `owner` transfers ownership. Owner only. |
+| `leave_conversation(p_conversation_id)` | Leaves a group (owner hand-over / cleanup via trigger). |
+| `mark_conversation_read(p_conversation_id)` | Sets caller's `last_read_at = now()`. |
+| `delete_message(p_message_id)` | Soft-deletes caller's own message; returns old `image_path` so the client can remove the file. |
+| `is_conversation_participant(id)` / `is_conversation_member(id)` | Chat RLS helpers (see section 9). |
+| `can_access_chat_media(p_object_name)` | Storage helper: parses conversation id from the path and checks membership. |
 
 ---
 
-## 11. Entity-relationship overview
+## 12. Entity-relationship overview
 
 ```
 auth.users
@@ -496,7 +594,12 @@ auth.users
   ├── user_login_days  (1:N)
   ├── teaching_offers  (1:N)
   ├── node_restructure_requests  (1:N)
-  └── support_messages  (1:N)
+  ├── support_messages  (1:N)
+  └── conversation_participants  (N:M with conversations, role + status)
+
+conversations  (direct | group)
+  ├── conversation_participants  (1:N)
+  └── messages  (1:N, optional skill_node_id → skill_nodes)
 
 skill_nodes  (self-referencing tree via parent_id + ltree path)
   ├── skill_attribute_defs  (1:N)
