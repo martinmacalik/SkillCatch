@@ -32,7 +32,8 @@ export default function App() {
         }
       >
         <Route index element={<DashboardPage />} />
-        <Route path="chats" element={<ChatsPage />} />
+        {/* optional segment → one route, ChatsPage stays mounted while switching chats */}
+        <Route path="chats/:conversationId?" element={<ChatsPage />} />
         <Route path="skills" element={<SkillsPage />} />
         <Route path="learn" element={<LearnPage />} />
         <Route path="learn/:skillId" element={<LearnPage />} />

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Download } from 'lucide-react'
+import { Download, MessageSquare } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/contexts/AuthProvider'
+import { startDirectChat } from '@/lib/chat-queries'
 import type { ProfileCard } from '@/components/profile-builder/SortableCardList'
 
 interface Profile {
@@ -112,6 +114,23 @@ export default function PublicProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [cards, setCards] = useState<ProfileCard[]>([])
   const [loading, setLoading] = useState(true)
+  const { session } = useAuth()
+  const isOwnProfile = session?.user.id === id
+  const [startingChat, setStartingChat] = useState(false)
+  const [chatError, setChatError] = useState<string | null>(null)
+
+  const handleMessage = async () => {
+    if (!id) return
+    setStartingChat(true)
+    setChatError(null)
+    try {
+      const conversationId = await startDirectChat(id)
+      navigate(`/dashboard/chats/${conversationId}`)
+    } catch {
+      setChatError('Could not start the chat.')
+      setStartingChat(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -172,7 +191,7 @@ export default function PublicProfilePage() {
         ) : (
           <div className="h-20 w-20 rounded-full bg-linear-to-br from-pink-300 to-rose-400" />
         )}
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-gray-900">{displayName}</h1>
           {profile.username && (
             <p className="text-sm text-gray-400">@{profile.username}</p>
@@ -181,6 +200,19 @@ export default function PublicProfilePage() {
             <p className="mt-1.5 text-sm text-gray-600">{profile.bio}</p>
           )}
         </div>
+        {!isOwnProfile && (
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <button
+              onClick={handleMessage}
+              disabled={startingChat}
+              className="flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+            >
+              <MessageSquare className="h-4 w-4" />
+              Message
+            </button>
+            {chatError && <p className="text-xs text-red-500">{chatError}</p>}
+          </div>
+        )}
       </div>
 
       {/* Cards */}

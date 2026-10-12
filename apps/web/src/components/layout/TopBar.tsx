@@ -16,10 +16,12 @@ const searchPlaceholders: Record<string, string> = {
 export function TopBar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const placeholder = searchPlaceholders[location.pathname] || 'Search'
+  const isChats = location.pathname.startsWith('/dashboard/chats')
+  const placeholder = searchPlaceholders[isChats ? '/dashboard/chats' : location.pathname] || 'Search'
   const { session } = useAuth()
   const { query, setQuery } = useSearch()
-  const isSkills = location.pathname === '/dashboard/skills'
+  // pages that read the shared search query
+  const isSearchable = location.pathname === '/dashboard/skills' || isChats
   const [profile, setProfile] = useState<{
     first_name: string | null
     last_name: string | null
@@ -51,8 +53,8 @@ export function TopBar() {
         <input
           type="text"
           placeholder={placeholder}
-          value={isSkills ? query : undefined}
-          onChange={isSkills ? (e) => setQuery(e.target.value) : undefined}
+          value={isSearchable ? query : undefined}
+          onChange={isSearchable ? (e) => setQuery(e.target.value) : undefined}
           onKeyDown={undefined}
           className="w-full rounded-4xl bg-white py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10"
         />
