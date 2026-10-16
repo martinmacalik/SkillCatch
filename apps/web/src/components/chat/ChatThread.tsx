@@ -1,15 +1,19 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Check, SendHorizontal, X } from 'lucide-react'
+import { ArrowLeft, Check, Pencil, Reply, SendHorizontal, X } from 'lucide-react'
 import { useMessages } from '@/hooks/useMessages'
 import {
   displayName,
-  formatChatTime,
   MESSAGE_MAX_LENGTH,
   type ConversationSummary,
   type Message,
+  type ReactionEmoji,
 } from '@/lib/chat-queries'
 import { ChatAvatar } from './ChatAvatar'
+import { MessageRow } from './MessageRow'
+
+// what the composer is doing besides writing a new message
+type Draft = { kind: 'reply' | 'edit'; message: Message } | null
 
 interface Props {
   conversation: ConversationSummary
@@ -21,7 +25,26 @@ interface Props {
 
 export function ChatThread({ conversation, isRequest, myId, onAccept, onDecline }: Props) {
   const { id, other } = conversation
-  const { messages, loading, loadingOlder, hasMore, error, loadOlder, send } = useMessages(id, myId, !isRequest)
+  const { messages, loading, loadingOlder, hasMore, error, loadOlder, send, edit, remove, react } =
+    useMessages(id, myId, !isRequest)
+  const [draft, setDraft] = useState<Draft>(null)
+
+  const senderName = (senderId: string | null) => (senderId === myId ? 'You' : displayName(other))
+
+  const handleDelete = (m: Message) => {
+    if (!confirm('Delete this message?')) return
+    if (draft?.message.id === m.id) setDraft(null)
+    void remove(m.id)
+  }
+
+  const handleSubmit = async (body: string) => {
+    if (draft?.kind === 'edit') {
+      if (body !== draft.message.body) await edit(draft.message.id, body)
+    } else {
+      await send(body, draft?.kind === 'reply' ? draft.message.id : null)
+    }
+    setDraft(null)
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -68,8 +91,20 @@ export function ChatThread({ conversation, isRequest, myId, onAccept, onDecline 
             hasMore={hasMore}
             error={error}
             onLoadOlder={loadOlder}
+            senderName={senderName}
+            onReply={m => setDraft({ kind: 'reply', message: m })}
+            onEdit={m => setDraft({ kind: 'edit', message: m })}
+            onDelete={handleDelete}
+            onReact={(m, emoji) => void react(m.id, emoji)}
           />
-          <Composer key={`composer-${id}`} onSend={send} disabled={!other} />
+          <Composer
+            key={`composer-${id}`}
+            draft={draft}
+            senderName={senderName}
+            onCancelDraft={() => setDraft(null)}
+            onSubmit={handleSubmit}
+            disabled={!other}
+          />
         </>
       )}
     </div>
@@ -120,11 +155,38 @@ interface MessageListProps {
   hasMore: boolean
   error: string | null
   onLoadOlder: () => void
+  senderName: (senderId: string | null) => string
+  onReply: (m: Message) => void
+  onEdit: (m: Message) => void
+  onDelete: (m: Message) => void
+  onReact: (m: Message, emoji: ReactionEmoji) => void
 }
 
-function MessageList({ messages, myId, loading, loadingOlder, hasMore, error, onLoadOlder }: MessageListProps) {
+function MessageList({
+  messages, myId, loading, loadingOlder, hasMore, error, onLoadOlder,
+  senderName, onReply, onEdit, onDelete, onReact,
+}: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prev = useRef({ firstId: '', lastId: '', scrollHeight: 0, nearBottom: true })
+  const [activeId, setActiveId] = useState<string | null>(null) // touch: row with open toolbar
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+
+  // reply previews read the loaded message first, so an edit shows up there too
+  const byId = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages])
+
+  // flash the original message after jumping to it from a reply
+  useEffect(() => {
+    if (!highlightId) return
+    const t = setTimeout(() => setHighlightId(null), 1500)
+    return () => clearTimeout(t)
+  }, [highlightId])
+
+  const jumpTo = (messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`)
+    if (!el) return // not loaded (older page)
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightId(messageId)
+  }
 
   // Keep the view where the user expects it:
   //  - older messages prepended → keep the same message on screen
@@ -157,7 +219,7 @@ function MessageList({ messages, myId, loading, loadingOlder, hasMore, error, on
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-purple-600" />
         </div>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           {hasMore && (
             <button
               onClick={onLoadOlder}
@@ -171,42 +233,61 @@ function MessageList({ messages, myId, loading, loadingOlder, hasMore, error, on
           {messages.length === 0 && !error && (
             <p className="py-12 text-center text-sm text-gray-400">No messages yet. Say hi!</p>
           )}
-          {messages.map(m => (
-            <MessageBubble key={m.id} message={m} mine={m.sender_id === myId} />
-          ))}
+          {messages.map(m => {
+            const replyTarget = m.reply_to_id ? (byId.get(m.reply_to_id) ?? m.reply_to) : null
+            return (
+              <MessageRow
+                key={m.id}
+                message={m}
+                mine={m.sender_id === myId}
+                myId={myId}
+                replyTarget={replyTarget}
+                senderName={senderName}
+                active={activeId === m.id}
+                highlighted={highlightId === m.id}
+                onActivate={() => setActiveId(id => (id === m.id ? null : m.id))}
+                // an action closes the tapped-open toolbar
+                onReply={() => { setActiveId(null); onReply(m) }}
+                onEdit={() => { setActiveId(null); onEdit(m) }}
+                onDelete={() => { setActiveId(null); onDelete(m) }}
+                onReact={emoji => { setActiveId(null); onReact(m, emoji) }}
+                onJumpTo={jumpTo}
+              />
+            )
+          })}
         </div>
       )}
     </div>
   )
 }
 
-function MessageBubble({ message, mine }: { message: Message; mine: boolean }) {
-  const deleted = message.deleted_at !== null
-  return (
-    <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm ${
-          mine ? 'rounded-br-md bg-linear-to-br from-indigo-600 to-fuchsia-600 text-white' : 'rounded-bl-md bg-white text-gray-900'
-        }`}
-      >
-        {deleted ? (
-          <p className={`italic ${mine ? 'text-white/70' : 'text-gray-400'}`}>Message deleted</p>
-        ) : (
-          <p className="whitespace-pre-wrap break-words">{message.body}</p>
-        )}
-        <p className={`mt-0.5 text-right text-[10px] ${mine ? 'text-white/70' : 'text-gray-400'}`}>
-          {message.edited_at && !deleted && 'edited · '}
-          {formatChatTime(message.created_at)}
-        </p>
-      </div>
-    </div>
-  )
+interface ComposerProps {
+  draft: Draft
+  senderName: (senderId: string | null) => string
+  onCancelDraft: () => void
+  onSubmit: (body: string) => Promise<void>
+  disabled: boolean
 }
 
-function Composer({ onSend, disabled }: { onSend: (body: string) => Promise<void>; disabled: boolean }) {
+function Composer({ draft, senderName, onCancelDraft, onSubmit, disabled }: ComposerProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Draft changed → adjust the text right during render (React's pattern for
+  // "state derived from a prop change"; no extra render with stale text).
+  // Edit loads the message text, leaving edit clears it.
+  const [prevDraft, setPrevDraft] = useState<Draft>(null)
+  if (draft !== prevDraft) {
+    setPrevDraft(draft)
+    if (draft?.kind === 'edit') setText(draft.message.body ?? '')
+    else if (prevDraft?.kind === 'edit') setText('')
+  }
+
+  useEffect(() => {
+    if (draft) inputRef.current?.focus()
+  }, [draft])
 
   const trimmed = text.trim()
   const tooLong = text.length > MESSAGE_MAX_LENGTH
@@ -217,10 +298,10 @@ function Composer({ onSend, disabled }: { onSend: (body: string) => Promise<void
     setSending(true)
     setError(null)
     try {
-      await onSend(trimmed)
+      await onSubmit(trimmed)
       setText('')
     } catch {
-      setError('Message could not be sent. Try again.')
+      setError(draft?.kind === 'edit' ? 'Message could not be saved. Try again.' : 'Message could not be sent. Try again.')
     } finally {
       setSending(false)
     }
@@ -228,15 +309,41 @@ function Composer({ onSend, disabled }: { onSend: (body: string) => Promise<void
 
   return (
     <div className="pt-2">
+      {draft && (
+        <div className="mb-1 flex items-center gap-2 rounded-xl bg-white/70 px-3 py-1.5 text-xs text-gray-500">
+          {draft.kind === 'edit' ? (
+            <Pencil className="h-3.5 w-3.5 shrink-0 text-purple-600" />
+          ) : (
+            <Reply className="h-3.5 w-3.5 shrink-0 text-purple-600" />
+          )}
+          <p className="min-w-0 flex-1 truncate">
+            {draft.kind === 'edit' ? (
+              <span className="font-semibold text-gray-700">Editing message</span>
+            ) : (
+              <>
+                Replying to <span className="font-semibold text-gray-700">{senderName(draft.message.sender_id)}</span>
+                {': '}
+                {draft.message.body}
+              </>
+            )}
+          </p>
+          <button onClick={onCancelDraft} title="Cancel (Esc)" className="rounded-full p-1 transition hover:bg-gray-100">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
       <div className="flex items-end gap-2 rounded-2xl bg-white p-2">
         <textarea
+          ref={inputRef}
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => {
-            // Enter sends, Shift+Enter = new line
+            // Enter sends, Shift+Enter = new line, Esc cancels reply/edit
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault()
               void submit()
+            } else if (e.key === 'Escape' && draft) {
+              onCancelDraft()
             }
           }}
           rows={1}

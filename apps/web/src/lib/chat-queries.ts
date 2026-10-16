@@ -27,18 +27,52 @@ export interface ConversationLists {
   conversations: ConversationSummary[] // I am accepted
 }
 
-export interface Message {
+export const REACTION_EMOJI = ['👍', '👎', '😂', '😮'] as const
+export type ReactionEmoji = (typeof REACTION_EMOJI)[number]
+
+export interface Reaction {
+  user_id: string
+  emoji: ReactionEmoji
+}
+
+// the replied message, as far as the preview needs it
+export interface ReplyPreview {
+  id: string
+  sender_id: string | null
+  body: string | null
+  deleted_at: string | null
+}
+
+// columns of the messages table (= what a Realtime payload carries)
+export interface MessageRow {
   id: string
   conversation_id: string
   sender_id: string | null
   type: 'text' | 'image' | 'skill' | 'system'
   body: string | null
+  reply_to_id: string | null
   created_at: string
   edited_at: string | null
   deleted_at: string | null
 }
 
-const MESSAGE_COLUMNS = 'id, conversation_id, sender_id, type, body, created_at, edited_at, deleted_at'
+// + data embedded by the select
+export interface Message extends MessageRow {
+  reactions: Reaction[]
+  reply_to: ReplyPreview | null
+}
+
+const ROW_COLUMNS = 'id, conversation_id, sender_id, type, body, reply_to_id, created_at, edited_at, deleted_at'
+// message_reactions has an FK to messages → PostgREST can embed it;
+// reply_to embeds the same table through the reply_to_id FK
+const MESSAGE_COLUMNS =
+  `${ROW_COLUMNS}, reactions:message_reactions(user_id, emoji), ` +
+  'reply_to:messages!reply_to_id(id, sender_id, body, deleted_at)'
+
+// a Realtime payload is a bare row → add the embedded fields
+export function fromRow(row: MessageRow): Message {
+  return { ...row, reactions: [], reply_to: null }
+}
 const PROFILE_COLUMNS = 'id, first_name, last_name, username, avatar_url'
 
 export function displayName(p: ChatProfile | null): string {
@@ -153,18 +187,55 @@ export async function fetchMessages(conversationId: string, before?: string): Pr
 
   const { data, error } = await query
   if (error) throw error
-  return ((data ?? []) as Message[]).reverse()
+  return ((data ?? []) as unknown as Message[]).reverse()
+}
+
+export async function fetchMessage(id: string): Promise<Message> {
+  const { data, error } = await supabase.from('messages').select(MESSAGE_COLUMNS).eq('id', id).single()
+  if (error) throw error
+  return data as unknown as Message
 }
 
 // sender_id is filled by the column default auth.uid(); RLS checks it.
-export async function sendTextMessage(conversationId: string, body: string): Promise<Message> {
+export async function sendTextMessage(
+  conversationId: string,
+  body: string,
+  replyToId: string | null = null,
+): Promise<Message> {
   const { data, error } = await supabase
     .from('messages')
-    .insert({ conversation_id: conversationId, type: 'text', body })
+    .insert({ conversation_id: conversationId, type: 'text', body, reply_to_id: replyToId })
     .select(MESSAGE_COLUMNS)
     .single()
   if (error) throw error
-  return data as Message
+  return data as unknown as Message
+}
+
+// RLS: only my own, not deleted message; the trigger sets edited_at
+export async function editMessage(id: string, body: string): Promise<MessageRow> {
+  const { data, error } = await supabase
+    .from('messages')
+    .update({ body })
+    .eq('id', id)
+    .select(ROW_COLUMNS)
+    .single()
+  if (error) throw error
+  return data as MessageRow
+}
+
+// soft delete: the row stays as "Message deleted"
+export async function deleteMessage(id: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_message', { p_message_id: id })
+  if (error) throw error
+}
+
+// same emoji again (or null) removes my reaction
+export async function setReaction(messageId: string, emoji: ReactionEmoji | null): Promise<void> {
+  const { error } = await supabase.rpc('set_message_reaction', {
+    p_message_id: messageId,
+    p_emoji: emoji,
+  })
+  if (error) throw error
 }
 
 // ── PEOPLE SEARCH (new chat) ──

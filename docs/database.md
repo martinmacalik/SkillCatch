@@ -464,7 +464,7 @@ Membership, role and chat-request status.
 | `role` | text | `owner` \| `admin` \| `member` (direct chats: always `member`) |
 | `status` | text | `pending` (request not accepted; cannot read/send messages) \| `accepted` |
 | `joined_at` | timestamptz | invite time, reset on accept |
-| `last_read_at` | timestamptz | set by `mark_conversation_read()` |
+| `last_read_at` | timestamptz | set by `mark_conversation_read()`; also moved to the message time when the user sends a message (trigger on `messages` insert) |
 
 **Index:** `(user_id)` for "my conversations".
 **RLS:** Participants see the other participants of their conversations.
@@ -484,20 +484,36 @@ Membership, role and chat-request status.
 | `image_path` | text | path in `chat-media` bucket, must be `{conversation_id}/{sender_id}/…` |
 | `skill_node_id` | uuid → `skill_nodes` | shared skill; SET NULL on delete (required on insert for `skill`, enforced by trigger) |
 | `metadata` | jsonb | system messages only, e.g. `{"event":"member_added","actor_id":…,"target_id":…}` |
+| `reply_to_id` | uuid → `messages` | the message this one replies to; must be in the same conversation (trigger); SET NULL |
 | `created_at` | timestamptz | |
 | `edited_at` | timestamptz | NULL = never edited; set by trigger when `body` changes |
 | `deleted_at` | timestamptz | NULL = not deleted; content columns are wiped on delete |
 
 **Index:** `(conversation_id, created_at DESC)` for loading/paging; FK indexes on `sender_id`, `skill_node_id`.
 **RLS:** Only `accepted` members read. Members insert as themselves (`type` ≠ `system`). Authors update their own non-deleted, non-system messages.
-**Column privileges:** clients may INSERT only `id, conversation_id, sender_id, type, body, image_path, skill_node_id` and UPDATE only `body`.
+**Column privileges:** clients may INSERT only `id, conversation_id, sender_id, type, body, image_path, skill_node_id, reply_to_id` and UPDATE only `body`.
 **System message events:** `group_created`, `renamed`, `member_added`, `member_joined`, `member_removed`, `member_left`, `role_changed`.
 
 **RLS helpers** (SECURITY DEFINER, avoid policy recursion on `conversation_participants`):
 - `is_conversation_participant(conversation_id)`: caller is in the conversation (any status)
 - `is_conversation_member(conversation_id)`: caller is in the conversation with `status = 'accepted'`
 
-**Realtime:** `messages` and `conversation_participants` are in the `supabase_realtime` publication.
+### `message_reactions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `message_id` | uuid → `messages` | PK part, CASCADE |
+| `user_id` | uuid → `auth.users` | PK part, defaults to `auth.uid()`, CASCADE |
+| `conversation_id` | uuid → `conversations` | copied from the message (RLS check + realtime filter), CASCADE |
+| `emoji` | text | `👍` \| `👎` \| `😂` \| `😮` |
+| `created_at` | timestamptz | |
+
+One reaction per user per message (PK). Reactions of a soft-deleted message are removed by trigger.
+**Index:** `(conversation_id)`.
+**RLS:** Accepted members read. No write policies, writes only through `set_message_reaction()`.
+**Replica identity:** FULL (DELETE events carry `message_id` + `user_id`).
+
+**Realtime:** `messages`, `conversation_participants` and `message_reactions` are in the `supabase_realtime` publication.
 
 ---
 
@@ -569,6 +585,7 @@ All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed (except i
 | `leave_conversation(p_conversation_id)` | Leaves a group (owner hand-over / cleanup via trigger). |
 | `mark_conversation_read(p_conversation_id)` | Sets caller's `last_read_at = now()`. |
 | `delete_message(p_message_id)` | Soft-deletes caller's own message; returns old `image_path` so the client can remove the file. |
+| `set_message_reaction(p_message_id, p_emoji)` | Sets caller's reaction; same emoji again or NULL removes it. Returns the reaction after the call. |
 | `is_conversation_participant(id)` / `is_conversation_member(id)` | Chat RLS helpers (see section 9). |
 | `can_access_chat_media(p_object_name)` | Storage helper: parses conversation id from the path and checks membership. |
 
