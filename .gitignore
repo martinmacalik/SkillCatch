@@ -41,5 +41,3 @@ apps/**/.env
 # Playwright MCP scratch outputs
 .playwright-mcp/
 
-# Personal learning notes (not committed)
-docs/learning/
