@@ -513,7 +513,32 @@ One reaction per user per message (PK). Reactions of a soft-deleted message are 
 **RLS:** Accepted members read. No write policies, writes only through `set_message_reaction()`.
 **Replica identity:** FULL (DELETE events carry `message_id` + `user_id`).
 
-**Realtime:** `messages`, `conversation_participants` and `message_reactions` are in the `supabase_realtime` publication.
+### `hidden_conversations`
+Migration: `20261024001_chat_groups_hide_block.sql`. The "trash" on a 1:1 chat: hides it from the caller's list only.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `user_id` | uuid → `auth.users` | PK part, defaults to `auth.uid()`, CASCADE |
+| `conversation_id` | uuid → `conversations` | PK part, CASCADE |
+| `hidden_at` | timestamptz | the chat is hidden while `hidden_at >= last_message_at` (the frontend compares) → a new message brings it back |
+
+Own table rather than a column on `conversation_participants`, because participant rows are visible to the other person.
+**Index:** `(conversation_id)` (FK).
+**RLS:** Only the owner reads their rows. Writes only through `hide_conversation()`; `get_or_create_direct_conversation()` removes the row ("New chat" un-hides).
+
+### `user_blocks`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `blocker_id` | uuid → `auth.users` | PK part, defaults to `auth.uid()`, CASCADE |
+| `blocked_id` | uuid → `auth.users` | PK part, CASCADE; ≠ `blocker_id` |
+| `created_at` | timestamptz | |
+
+A block in either direction: no messages in the pair's 1:1 chat (trigger on `messages` insert raises `user_blocked`), no new 1:1 chat request, no group invite between them (silently skipped). Existing shared groups are not affected.
+**Index:** `(blocked_id)`.
+**RLS:** Both the blocker and the blocked user read the row (the blocked user's chat shows "This user has blocked you"). Writes only through `block_user()` / `unblock_user()`.
+
+**Realtime:** `messages`, `conversation_participants`, `message_reactions` and `user_blocks` are in the `supabase_realtime` publication.
 
 ---
 
@@ -574,12 +599,14 @@ All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed (except i
 | `is_editor()` | Returns `true` if the current user has `admin` or `editor` role. Used by RLS policies. |
 | `_apply_move_tree(p_nodes)` | Internal helper: walks a proposal node tree, applies renames/deletions recursively. |
 | `_apply_move_new_nodes(p_parent_id, p_nodes)` | Internal helper: creates new nodes under a given parent, inheriting its path. |
-| `get_or_create_direct_conversation(p_other_user_id)` | Returns the existing 1:1 chat or creates it (caller `accepted`, other user `pending`). |
-| `create_group_conversation(p_title, p_member_ids?)` | Creates a group; caller = `owner`, invited users = `pending`. |
+| `get_or_create_direct_conversation(p_other_user_id)` | Returns the existing 1:1 chat (and un-hides it for the caller) or creates it (caller `accepted`, other user `pending`; refused across a block). |
+| `create_group_conversation(p_title, p_member_ids?)` | Creates a group; caller = `owner`, invited users = `pending` (blocked users skipped). |
+| `hide_conversation(p_conversation_id)` | Hides an accepted 1:1 chat from the caller's list until a new message arrives. |
+| `block_user(p_user_id)` / `unblock_user(p_user_id)` | Adds / removes the caller's block on a user. |
 | `accept_conversation(p_conversation_id)` | Accepts a chat request (`pending` → `accepted`). |
 | `decline_conversation(p_conversation_id)` | Declines a request: deletes the whole direct chat, or only the caller's group invite. |
 | `rename_conversation(p_conversation_id, p_title)` | Renames a group. Owner/admin. |
-| `add_conversation_members(p_conversation_id, p_user_ids)` | Invites users to a group (`pending`). Owner/admin. |
+| `add_conversation_members(p_conversation_id, p_user_ids)` | Invites users to a group (`pending`, blocked users skipped). Owner/admin. |
 | `remove_conversation_member(p_conversation_id, p_user_id)` | Removes a participant. Admin → members only; owner → anyone. |
 | `set_participant_role(p_conversation_id, p_user_id, p_role)` | Changes role; `owner` transfers ownership. Owner only. |
 | `leave_conversation(p_conversation_id)` | Leaves a group (owner hand-over / cleanup via trigger). |
@@ -612,7 +639,9 @@ auth.users
   ├── teaching_offers  (1:N)
   ├── node_restructure_requests  (1:N)
   ├── support_messages  (1:N)
-  └── conversation_participants  (N:M with conversations, role + status)
+  ├── conversation_participants  (N:M with conversations, role + status)
+  ├── hidden_conversations  (N:M with conversations, own "trash")
+  └── user_blocks  (N:M with auth.users, blocker → blocked)
 
 conversations  (direct | group)
   ├── conversation_participants  (1:N)

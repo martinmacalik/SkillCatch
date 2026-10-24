@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Plus, X } from 'lucide-react'
-import { displayName, formatChatTime, type ConversationSummary } from '@/lib/chat-queries'
-import { ChatAvatar } from './ChatAvatar'
+import { conversationName, formatChatTime, type ConversationSummary } from '@/lib/chat-queries'
+import { ConversationAvatar } from './ChatAvatar'
 
 interface Props {
   requests: ConversationSummary[]
@@ -19,7 +19,13 @@ interface Props {
 function matches(c: ConversationSummary, filter: string) {
   const q = filter.trim().toLowerCase()
   if (!q) return true
-  return displayName(c.other).toLowerCase().includes(q) || !!c.other?.username?.toLowerCase().includes(q)
+  return conversationName(c).toLowerCase().includes(q) || !!c.other?.username?.toLowerCase().includes(q)
+}
+
+function subtitle(c: ConversationSummary): string {
+  if (c.type === 'group') return `${c.members.filter(m => !m.pending).length + 1} members`
+  if (c.otherPending) return 'Waiting for acceptance'
+  return c.other?.username ? `@${c.other.username}` : ''
 }
 
 export function ConversationList({
@@ -47,7 +53,9 @@ export function ConversationList({
         </button>
       </div>
 
-      <div className="skills-scroll flex-1 overflow-y-auto pr-1">
+      {/* overflow clips the cards' shadows → pad the scroll area and pull it back
+          out with negative margins so the cards stay aligned with the header */}
+      <div className="skills-scroll -mx-4 flex-1 overflow-y-auto px-4 pt-1 pb-4">
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-purple-600" />
@@ -70,10 +78,12 @@ export function ConversationList({
                       }`}
                     >
                       <Link to={`/dashboard/chats/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                        <ChatAvatar profile={c.other} />
+                        <ConversationAvatar conversation={c} />
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-gray-900">{displayName(c.other)}</p>
-                          <p className="text-xs text-gray-400">wants to chat with you</p>
+                          <p className="truncate font-semibold text-gray-900">{conversationName(c)}</p>
+                          <p className="text-xs text-gray-400">
+                            {c.type === 'group' ? 'invited you to a group' : 'wants to chat with you'}
+                          </p>
                         </div>
                       </Link>
                       <button
@@ -107,14 +117,12 @@ export function ConversationList({
                     c.id === activeId ? 'bg-white shadow-[0_4px_24px_rgba(0,0,0,0.06)]' : 'hover:bg-white/70'
                   }`}
                 >
-                  <ChatAvatar profile={c.other} />
+                  <ConversationAvatar conversation={c} />
                   <div className="min-w-0 flex-1">
                     <p className={`truncate text-gray-900 ${c.unread ? 'font-bold' : 'font-medium'}`}>
-                      {displayName(c.other)}
+                      {conversationName(c)}
                     </p>
-                    <p className="truncate text-xs text-gray-400">
-                      {c.otherPending ? 'Waiting for acceptance' : c.other?.username ? `@${c.other.username}` : ''}
-                    </p>
+                    <p className="truncate text-xs text-gray-400">{subtitle(c)}</p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <span className={`text-xs ${c.unread ? 'font-semibold text-purple-600' : 'text-gray-400'}`}>

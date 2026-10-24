@@ -1,15 +1,17 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Check, Pencil, Reply, SendHorizontal, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Check, Pencil, Reply, SendHorizontal, X } from 'lucide-react'
 import { useMessages } from '@/hooks/useMessages'
 import {
+  conversationName,
   displayName,
   MESSAGE_MAX_LENGTH,
   type ConversationSummary,
   type Message,
   type ReactionEmoji,
+  type SystemMetadata,
 } from '@/lib/chat-queries'
-import { ChatAvatar } from './ChatAvatar'
+import { ConversationAvatar } from './ChatAvatar'
+import { ChatHeader, type ChatActions } from './ChatHeader'
 import { MessageRow } from './MessageRow'
 
 // what the composer is doing besides writing a new message
@@ -19,17 +21,26 @@ interface Props {
   conversation: ConversationSummary
   isRequest: boolean // I haven't accepted yet → can't read messages
   myId: string
+  blockedIds: string[]
+  actions: ChatActions
   onAccept: (id: string) => Promise<void>
   onDecline: (id: string) => Promise<void>
 }
 
-export function ChatThread({ conversation, isRequest, myId, onAccept, onDecline }: Props) {
+export function ChatThread({ conversation, isRequest, myId, blockedIds, actions, onAccept, onDecline }: Props) {
   const { id, other } = conversation
   const { messages, loading, loadingOlder, hasMore, error, loadOlder, send, edit, remove, react } =
     useMessages(id, myId, !isRequest)
   const [draft, setDraft] = useState<Draft>(null)
 
-  const senderName = (senderId: string | null) => (senderId === myId ? 'You' : displayName(other))
+  // 1:1 → the other person; group → look the sender up among the members
+  // (someone who left the group isn't a member anymore → "Former member")
+  const senderName = (senderId: string | null) => {
+    if (senderId === myId) return 'You'
+    if (conversation.type === 'direct') return displayName(other)
+    const member = conversation.members.find(m => m.id === senderId)
+    return member ? displayName(member) : 'Former member'
+  }
 
   const handleDelete = (m: Message) => {
     if (!confirm('Delete this message?')) return
@@ -48,30 +59,13 @@ export function ChatThread({ conversation, isRequest, myId, onAccept, onDecline 
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-gray-100 pb-3">
-        <Link
-          to="/dashboard/chats"
-          className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-gray-100 lg:hidden"
-          title="Back"
-        >
-          <ArrowLeft className="h-5 w-5 text-gray-600" />
-        </Link>
-        {other ? (
-          <Link to={`/profile/${other.id}`} className="flex min-w-0 items-center gap-3">
-            <ChatAvatar profile={other} className="h-10 w-10" />
-            <div className="min-w-0">
-              <p className="truncate font-semibold text-gray-900">{displayName(other)}</p>
-              {other.username && <p className="text-xs text-gray-400">@{other.username}</p>}
-            </div>
-          </Link>
-        ) : (
-          <div className="flex items-center gap-3">
-            <ChatAvatar profile={null} className="h-10 w-10" />
-            <p className="font-semibold text-gray-500">{displayName(null)}</p>
-          </div>
-        )}
-      </div>
+      <ChatHeader
+        conversation={conversation}
+        isRequest={isRequest}
+        myId={myId}
+        blockedIds={blockedIds}
+        actions={actions}
+      />
 
       {isRequest ? (
         <RequestPanel conversation={conversation} onAccept={onAccept} onDecline={onDecline} />
@@ -91,22 +85,46 @@ export function ChatThread({ conversation, isRequest, myId, onAccept, onDecline 
             hasMore={hasMore}
             error={error}
             onLoadOlder={loadOlder}
+            isGroup={conversation.type === 'group'}
             senderName={senderName}
             onReply={m => setDraft({ kind: 'reply', message: m })}
             onEdit={m => setDraft({ kind: 'edit', message: m })}
             onDelete={handleDelete}
             onReact={(m, emoji) => void react(m.id, emoji)}
           />
-          <Composer
-            key={`composer-${id}`}
-            draft={draft}
-            senderName={senderName}
-            onCancelDraft={() => setDraft(null)}
-            onSubmit={handleSubmit}
-            disabled={!other}
-          />
+          {/* a block (either way) replaces the input; my own block can be undone here */}
+          {conversation.blockedByMe ? (
+            <BlockedNotice text="You blocked this user.">
+              <button
+                onClick={() => void actions.unblock(other!.id)}
+                className="rounded-full bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-gray-700"
+              >
+                Unblock
+              </button>
+            </BlockedNotice>
+          ) : conversation.blockedMe ? (
+            <BlockedNotice text="This user has blocked you." />
+          ) : (
+            <Composer
+              key={`composer-${id}`}
+              draft={draft}
+              senderName={senderName}
+              onCancelDraft={() => setDraft(null)}
+              onSubmit={handleSubmit}
+              disabled={conversation.type === 'direct' && !other}
+            />
+          )}
         </>
       )}
+    </div>
+  )
+}
+
+function BlockedNotice({ text, children }: { text: string; children?: ReactNode }) {
+  return (
+    <div className="mt-2 flex items-center justify-center gap-3 rounded-2xl bg-white p-4 text-sm text-gray-500">
+      {text}
+      {children}
     </div>
   )
 }
@@ -122,10 +140,14 @@ function RequestPanel({
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <ChatAvatar profile={conversation.other} className="h-20 w-20" />
+      <ConversationAvatar conversation={conversation} className="h-20 w-20" />
       <div>
-        <p className="text-lg font-semibold text-gray-900">{displayName(conversation.other)} wants to chat</p>
-        <p className="mt-1 text-sm text-gray-400">You'll see their messages after you accept.</p>
+        <p className="text-lg font-semibold text-gray-900">
+          {conversation.type === 'group'
+            ? `You're invited to ${conversationName(conversation)}`
+            : `${displayName(conversation.other)} wants to chat`}
+        </p>
+        <p className="mt-1 text-sm text-gray-400">You'll see the messages after you accept.</p>
       </div>
       <div className="flex gap-3">
         <button
@@ -155,6 +177,7 @@ interface MessageListProps {
   hasMore: boolean
   error: string | null
   onLoadOlder: () => void
+  isGroup: boolean // show sender names above other people's messages
   senderName: (senderId: string | null) => string
   onReply: (m: Message) => void
   onEdit: (m: Message) => void
@@ -164,7 +187,7 @@ interface MessageListProps {
 
 function MessageList({
   messages, myId, loading, loadingOlder, hasMore, error, onLoadOlder,
-  senderName, onReply, onEdit, onDelete, onReact,
+  isGroup, senderName, onReply, onEdit, onDelete, onReact,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prev = useRef({ firstId: '', lastId: '', scrollHeight: 0, nearBottom: true })
@@ -173,6 +196,8 @@ function MessageList({
 
   // reply previews read the loaded message first, so an edit shows up there too
   const byId = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages])
+  // deleted messages stay in state (reply previews still point at them) but aren't shown
+  const visible = useMemo(() => messages.filter(m => m.deleted_at === null), [messages])
 
   // flash the original message after jumping to it from a reply
   useEffect(() => {
@@ -230,17 +255,28 @@ function MessageList({
             </button>
           )}
           {error && <p className="text-center text-xs text-red-500">{error}</p>}
-          {messages.length === 0 && !error && (
+          {visible.length === 0 && !hasMore && !error && (
             <p className="py-12 text-center text-sm text-gray-400">No messages yet. Say hi!</p>
           )}
-          {messages.map(m => {
+          {visible.map((m, i) => {
+            if (m.type === 'system') {
+              return (
+                <p key={m.id} className="py-1 text-center text-xs text-gray-400">
+                  {m.metadata ? systemText(m.metadata, myId, senderName) : ''}
+                </p>
+              )
+            }
             const replyTarget = m.reply_to_id ? (byId.get(m.reply_to_id) ?? m.reply_to) : null
+            const mine = m.sender_id === myId
+            // group: name above the first message of a run from the same person
+            const prevSender = visible[i - 1]?.type === 'system' ? null : visible[i - 1]?.sender_id
+            const senderLabel = isGroup && !mine && prevSender !== m.sender_id ? senderName(m.sender_id) : null
             return (
               <MessageRow
                 key={m.id}
                 message={m}
-                mine={m.sender_id === myId}
-                myId={myId}
+                mine={mine}
+                senderLabel={senderLabel}
                 replyTarget={replyTarget}
                 senderName={senderName}
                 active={activeId === m.id}
@@ -259,6 +295,21 @@ function MessageList({
       )}
     </div>
   )
+}
+
+// "Adam added you", "You left the group" — written here from metadata so names stay current
+function systemText(meta: SystemMetadata, myId: string, senderName: (id: string | null) => string): string {
+  const actor = senderName(meta.actor_id)
+  const target = meta.target_id === myId ? 'you' : senderName(meta.target_id ?? null)
+  switch (meta.event) {
+    case 'group_created': return `${actor} created the group`
+    case 'member_added': return `${actor} added ${target}`
+    case 'member_joined': return `${actor} joined the group`
+    case 'member_left': return `${actor} left the group`
+    case 'member_removed': return `${actor} removed ${target}`
+    case 'renamed': return `${actor} renamed the group to “${meta.title}”`
+    case 'role_changed': return `${actor} made ${target} ${meta.role}`
+  }
 }
 
 interface ComposerProps {

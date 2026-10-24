@@ -1,12 +1,23 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthProvider'
 import { useSearch } from '@/contexts/SearchContext'
 import { useConversations } from '@/hooks/useConversations'
-import { acceptRequest, declineRequest, startDirectChat } from '@/lib/chat-queries'
+import {
+  acceptRequest,
+  addGroupMembers,
+  blockUser,
+  createGroup,
+  declineRequest,
+  hideConversation,
+  leaveGroup,
+  startDirectChat,
+  unblockUser,
+} from '@/lib/chat-queries'
 import { ConversationList } from '@/components/chat/ConversationList'
 import { ChatThread } from '@/components/chat/ChatThread'
+import type { ChatActions } from '@/components/chat/ChatHeader'
 import { NewChatModal } from '@/components/chat/NewChatModal'
 
 export default function ChatsPage() {
@@ -15,7 +26,7 @@ export default function ChatsPage() {
   const { session } = useAuth()
   const myId = session?.user.id
   const { query, setQuery } = useSearch()
-  const { requests, conversations, loading, error, reload } = useConversations(myId)
+  const { requests, conversations, blockedIds, loading, error, reload } = useConversations(myId)
   const [newChatOpen, setNewChatOpen] = useState(false)
 
   // the TopBar search query is shared with Skills → start and leave clean
@@ -45,6 +56,37 @@ export default function ChatsPage() {
     setNewChatOpen(false)
     navigate(`/dashboard/chats/${id}`)
   }, [reload, navigate])
+
+  // chat header buttons: run the RPC, refresh the list, go where it makes sense
+  const actions = useMemo<ChatActions>(() => ({
+    createGroup: async people => {
+      const id = await createGroup(myId!, people)
+      await reload()
+      navigate(`/dashboard/chats/${id}`)
+    },
+    addMembers: async (id, people) => {
+      await addGroupMembers(id, people.map(p => p.id))
+      await reload()
+    },
+    leave: async id => {
+      await leaveGroup(id)
+      await reload()
+      navigate('/dashboard/chats')
+    },
+    hide: async id => {
+      await hideConversation(id)
+      await reload()
+      navigate('/dashboard/chats')
+    },
+    block: async userId => {
+      await blockUser(userId)
+      await reload()
+    },
+    unblock: async userId => {
+      await unblockUser(userId)
+      await reload()
+    },
+  }), [myId, reload, navigate])
 
   if (!myId) return null
 
@@ -79,6 +121,8 @@ export default function ChatsPage() {
             conversation={active}
             isRequest={!!request}
             myId={myId}
+            blockedIds={blockedIds}
+            actions={actions}
             onAccept={handleAccept}
             onDecline={handleDecline}
           />

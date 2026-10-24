@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Search, X } from 'lucide-react'
-import { displayName, searchPeople, type ChatProfile } from '@/lib/chat-queries'
+import { displayName } from '@/lib/chat-queries'
+import { usePeopleSearch } from '@/hooks/usePeopleSearch'
 import { ChatAvatar } from './ChatAvatar'
 
 interface Props {
@@ -10,23 +11,10 @@ interface Props {
 }
 
 export function NewChatModal({ myId, onPick, onClose }: Props) {
-  const [query, setQuery] = useState('')
-  const [people, setPeople] = useState<ChatProfile[]>([])
-  const [loading, setLoading] = useState(true)
+  const { query, search, people, loading, error: searchError } = usePeopleSearch(myId)
   const [pickingId, setPickingId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  // small debounce so we don't query on every keystroke
-  useEffect(() => {
-    let cancelled = false
-    const t = setTimeout(() => {
-      searchPeople(query, myId)
-        .then(data => { if (!cancelled) setPeople(data) })
-        .catch(() => { if (!cancelled) setError('Search failed.') })
-        .finally(() => { if (!cancelled) setLoading(false) })
-    }, 250)
-    return () => { cancelled = true; clearTimeout(t) }
-  }, [query, myId])
+  const [pickError, setError] = useState<string | null>(null)
+  const error = pickError ?? searchError
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -63,7 +51,7 @@ export function NewChatModal({ myId, onPick, onClose }: Props) {
           <input
             autoFocus
             value={query}
-            onChange={e => { setQuery(e.target.value); setLoading(true) }}
+            onChange={e => search(e.target.value)}
             placeholder="Search by name or username"
             className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
           />

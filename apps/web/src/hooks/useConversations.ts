@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { fetchConversations, type ConversationLists } from '@/lib/chat-queries'
 
-const EMPTY: ConversationLists = { requests: [], conversations: [] }
+const EMPTY: ConversationLists = { requests: [], conversations: [], blockedIds: [] }
 
 // Chat list + incoming requests, kept live through Realtime.
 // Any relevant change simply refetches the whole list: small data, always correct.
@@ -40,6 +40,8 @@ export function useConversations(myId: string | undefined) {
       .channel(`chat-list:${myId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_participants' }, () => void reload())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => void reload())
+      // someone blocked / unblocked me → the composer switches live
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_blocks' }, () => void reload())
       .subscribe()
 
     return () => {
