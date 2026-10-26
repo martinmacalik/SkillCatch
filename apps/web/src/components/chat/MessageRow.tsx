@@ -111,7 +111,7 @@ export function MessageRow({
         <div
           className={`relative rounded-2xl px-3.5 py-2 text-sm ${
             mine ? 'rounded-br-md bg-linear-to-br from-indigo-600 to-fuchsia-600 text-white' : 'rounded-bl-md bg-white text-gray-900'
-          } ${message.reactions.length > 0 ? 'mb-3' : ''}`}
+          } ${reactionMargin(message.reactions)}`}
         >
           {replyTarget && (
             <button
@@ -142,6 +142,13 @@ export function MessageRow({
   )
 }
 
+// room under the bubble for the reactions (+ the count line under them)
+function reactionMargin(reactions: Message['reactions']): string {
+  if (reactions.length === 0) return ''
+  const hasCount = reactions.some((r, i) => reactions.findIndex(x => x.emoji === r.emoji) !== i)
+  return hasCount ? 'mb-5' : 'mb-3'
+}
+
 // big emoji pinned to the bubble's bottom outer corner; clicking one toggles it
 function Reactions({ message, mine, onReact }: Pick<Props, 'message' | 'mine' | 'onReact'>) {
   if (message.reactions.length === 0) return null
@@ -155,10 +162,11 @@ function Reactions({ message, mine, onReact }: Pick<Props, 'message' | 'mine' | 
         <button
           key={c.emoji}
           onClick={e => { e.stopPropagation(); onReact(c.emoji) }}
-          className="flex items-center gap-0.5 text-xl text-gray-500 drop-shadow-md transition hover:scale-110"
+          className="flex flex-col items-center transition hover:scale-110"
         >
-          <span>{c.emoji}</span>
-          {c.count > 1 && <span>{c.count}</span>}
+          <span className="text-xl leading-6 drop-shadow-md">{c.emoji}</span>
+          {/* count under the emoji, so it never overlaps the bubble or the text */}
+          {c.count > 1 && <span className="text-[10px] font-semibold leading-none text-gray-900">{c.count}</span>}
         </button>
       ))}
     </div>

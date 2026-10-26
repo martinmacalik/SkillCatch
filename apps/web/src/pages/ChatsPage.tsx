@@ -10,8 +10,12 @@ import {
   blockUser,
   createGroup,
   declineRequest,
+  deleteGroup,
   hideConversation,
   leaveGroup,
+  removeGroupMember,
+  renameGroup,
+  setGroupPhoto,
   startDirectChat,
   unblockUser,
 } from '@/lib/chat-queries'
@@ -73,6 +77,24 @@ export default function ChatsPage() {
       await reload()
       navigate('/dashboard/chats')
     },
+    rename: async (id, title) => {
+      await renameGroup(id, title)
+      await reload()
+    },
+    setPhoto: async (id, file) => {
+      const prior = conversations.find(c => c.id === id)?.avatarPath ?? null
+      await setGroupPhoto(myId!, id, file, prior)
+      await reload()
+    },
+    removeMember: async (id, userId) => {
+      await removeGroupMember(id, userId)
+      await reload()
+    },
+    deleteGroup: async id => {
+      await deleteGroup(id)
+      await reload()
+      navigate('/dashboard/chats')
+    },
     hide: async id => {
       await hideConversation(id)
       await reload()
@@ -86,7 +108,7 @@ export default function ChatsPage() {
       await unblockUser(userId)
       await reload()
     },
-  }), [myId, reload, navigate])
+  }), [myId, conversations, reload, navigate])
 
   if (!myId) return null
 

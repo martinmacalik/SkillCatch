@@ -37,11 +37,9 @@ async function tryDeletePrior(userId: string, priorUrl: string | null) {
   await supabase.storage.from('avatars').remove([objectPath])
 }
 
-export async function uploadAvatar(
-  userId: string,
-  file: File,
-  priorUrl: string | null,
-): Promise<string> {
+// validate + resize + upload into the user's folder; returns the object path
+// (also used for group photos, see chat-queries.ts)
+export async function uploadToAvatars(userId: string, file: File): Promise<string> {
   if (file.size > MAX_BYTES) {
     throw new AvatarUploadError('File is larger than 2 MB.')
   }
@@ -56,6 +54,15 @@ export async function uploadAvatar(
     .from('avatars')
     .upload(objectName, blob, { contentType: 'image/webp', upsert: false })
   if (uploadErr) throw new AvatarUploadError(uploadErr.message)
+  return objectName
+}
+
+export async function uploadAvatar(
+  userId: string,
+  file: File,
+  priorUrl: string | null,
+): Promise<string> {
+  const objectName = await uploadToAvatars(userId, file)
 
   const { data } = supabase.storage.from('avatars').getPublicUrl(objectName)
   const publicUrl = data.publicUrl

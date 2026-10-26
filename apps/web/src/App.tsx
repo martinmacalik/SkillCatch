@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom'
 import LandingPage from '@/pages/LandingPage.tsx'
 import SignInPage from './pages/SignInPage'
 import AuthCallback from './pages/AuthCallback.tsx'
+import TermsPage from './pages/TermsPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/signin" element={<SignInPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/terms" element={<TermsPage />} />
       <Route
         path="/dashboard"
         element={

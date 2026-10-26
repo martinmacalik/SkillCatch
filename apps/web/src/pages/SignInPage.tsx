@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import Logo from "../assets/Logo.png";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useState, useEffect, useRef } from "react";
 import { ShaderGradientCanvas, ShaderGradient } from "@shadergradient/react";
@@ -26,8 +26,9 @@ export default function SignUp() {
       </div>
 
       {/* Card: white card floating on gradient (mobile) | two-panel card (desktop) */}
-      <div className="relative z-10 w-full mx-4 bg-white rounded-[35px] overflow-hidden min-[1095px]:mx-0 min-[1095px]:max-w-6xl min-[1095px]:aspect-3/2 min-[1095px]:rounded-[55px]">
-        <div className="w-full flex flex-col min-[1095px]:flex-row min-[1095px]:h-full min-[1095px]:gap-7">
+      {/* No overflow-hidden: aspect-3/2 is then only a minimum and the card grows when the form is taller */}
+      <div className="relative z-10 w-full mx-4 bg-white rounded-[35px] min-[1095px]:flex min-[1095px]:mx-0 min-[1095px]:max-w-6xl min-[1095px]:aspect-3/2 min-[1095px]:rounded-[55px]">
+        <div className="w-full flex flex-col min-[1095px]:flex-row min-[1095px]:flex-1 min-[1095px]:gap-7">
           <LeftPanel />
           <RightPanel />
         </div>
@@ -77,6 +78,7 @@ function RightPanel() {
     lastName: "",
     email: "",
     password: "",
+    confirmPassword: "",
     agreeToTerms: false,
   });
   const [loading, setLoading] = useState(false);
@@ -212,18 +214,23 @@ function RightPanel() {
       }
     } else {
       // Signup logic
-      if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !formData.confirmPassword) {
         setMessage({ type: "error", text: "Please fill in all fields" });
-        return;
-      }
-
-      if (!formData.agreeToTerms) {
-        setMessage({ type: "error", text: "Please agree to the Terms and Conditions" });
         return;
       }
 
       if (formData.password.length < 6) {
         setMessage({ type: "error", text: "Password must be at least 6 characters" });
+        return;
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        setMessage({ type: "error", text: "Passwords do not match" });
+        return;
+      }
+
+      if (!formData.agreeToTerms) {
+        setMessage({ type: "error", text: "Please agree to the Terms and Conditions" });
         return;
       }
 
@@ -282,6 +289,7 @@ function RightPanel() {
             lastName: "",
             email: "",
             password: prev.password, // Keep password for polling
+            confirmPassword: "",
             agreeToTerms: false,
           }));
         } else {
@@ -332,6 +340,7 @@ function RightPanel() {
                 lastName: "",
                 email: "",
                 password: "",
+                confirmPassword: "",
                 agreeToTerms: false,
               });
             }}
@@ -420,6 +429,42 @@ function RightPanel() {
           />
         </Field>
 
+        {/* Row 4: confirm password (only for signup) */}
+        {!isLogin && (
+          <Field label="Confirm Password">
+            <Input
+              placeholder="Confirm Password"
+              type="password"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+            />
+            {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+              <p className="mt-2 px-5 text-xs text-red-600">Passwords do not match</p>
+            )}
+          </Field>
+        )}
+
+        {/* Terms (only for signup) */}
+        {!isLogin && (
+          <label className="flex items-center gap-3 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              name="agreeToTerms"
+              checked={formData.agreeToTerms}
+              onChange={handleChange}
+              className="h-4 w-4 rounded border-gray-300 accent-black cursor-pointer"
+            />
+            <span>
+              I agree to the{" "}
+              {/* New tab so the half-filled form is not lost */}
+              <Link to="/terms" target="_blank" className="text-gray-900 underline underline-offset-4">
+                Terms and Conditions
+              </Link>
+            </span>
+          </label>
+        )}
+
         {/* Submit */}
         <button
           type="submit"
@@ -437,25 +482,6 @@ function RightPanel() {
             : (isLogin ? "Log in" : "Submit")
           }
         </button>
-
-        {/* Terms (only for signup) */}
-        {!isLogin && (
-          <label className="flex items-center gap-3 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              name="agreeToTerms"
-              checked={formData.agreeToTerms}
-              onChange={handleChange}
-              className="h-4 w-4 rounded border-gray-300 accent-black cursor-pointer"
-            />
-            <span>
-              I agree to the{" "}
-              <a href="#" className="text-gray-900 underline underline-offset-4">
-                Terms and condition
-              </a>
-            </span>
-          </label>
-        )}
 
         {/* Divider with OR */}
         <Divider text="or" />

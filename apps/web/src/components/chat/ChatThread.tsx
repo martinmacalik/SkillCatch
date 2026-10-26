@@ -308,6 +308,7 @@ function systemText(meta: SystemMetadata, myId: string, senderName: (id: string 
     case 'member_left': return `${actor} left the group`
     case 'member_removed': return `${actor} removed ${target}`
     case 'renamed': return `${actor} renamed the group to “${meta.title}”`
+    case 'photo_changed': return `${actor} changed the group photo`
     case 'role_changed': return `${actor} made ${target} ${meta.role}`
   }
 }

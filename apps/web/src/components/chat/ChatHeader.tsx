@@ -1,16 +1,21 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Ban, LogOut, Trash2, UserPlus } from 'lucide-react'
+import { ArrowLeft, Ban, LogOut, Pencil, Trash2, UserPlus } from 'lucide-react'
 import { conversationName, displayName, type ChatProfile, type ConversationSummary } from '@/lib/chat-queries'
 import { AddPeopleModal } from './AddPeopleModal'
 import { ChatAvatar, ConversationAvatar } from './ChatAvatar'
 import { ConfirmButton } from './ConfirmButton'
+import { GroupSettingsModal } from './GroupSettingsModal'
 
 // what the header buttons do; ChatsPage implements them (RPC + reload + navigate)
 export interface ChatActions {
   createGroup: (people: ChatProfile[]) => Promise<void>
   addMembers: (conversationId: string, people: ChatProfile[]) => Promise<void>
   leave: (conversationId: string) => Promise<void>
+  rename: (conversationId: string, title: string) => Promise<void>
+  setPhoto: (conversationId: string, file: File) => Promise<void>
+  removeMember: (conversationId: string, userId: string) => Promise<void>
+  deleteGroup: (conversationId: string) => Promise<void>
   hide: (conversationId: string) => Promise<void>
   block: (userId: string) => Promise<void>
   unblock: (userId: string) => Promise<void>
@@ -26,6 +31,7 @@ interface Props {
 
 export function ChatHeader({ conversation: c, isRequest, myId, blockedIds, actions }: Props) {
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState(false)
   const isGroup = c.type === 'group'
   const blocked = c.blockedByMe || c.blockedMe
   // 1:1 → a new group with the other person; group → owner/admin invite more
@@ -73,6 +79,16 @@ export function ChatHeader({ conversation: c, isRequest, myId, blockedIds, actio
               className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
             >
               <UserPlus className="h-5 w-5" />
+            </button>
+          )}
+
+          {isGroup && (
+            <button
+              title="Group settings"
+              onClick={() => setEditing(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Pencil className="h-5 w-5" />
             </button>
           )}
 
@@ -137,6 +153,10 @@ export function ChatHeader({ conversation: c, isRequest, myId, blockedIds, actio
           }}
           onClose={() => setAdding(false)}
         />
+      )}
+
+      {editing && (
+        <GroupSettingsModal conversation={c} myId={myId} actions={actions} onClose={() => setEditing(false)} />
       )}
     </div>
   )
