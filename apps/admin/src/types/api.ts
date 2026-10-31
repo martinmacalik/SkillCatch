@@ -68,6 +68,33 @@ export interface LearningSuggestion {
   submitter_username: string | null;
 }
 
+export type SkillReviewStatus = 'pending' | 'approved' | 'rejected';
+
+export interface SimilarSkill {
+  id: string;
+  name: string;
+  is_leaf: boolean;
+  parent_name: string | null;
+}
+
+export interface UserCreatedSkill {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id: string | null;
+  status: SkillReviewStatus;
+  created_by: string | null;
+  show_creator: boolean;
+  created_at: string;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  duplicate_of: string | null;
+  parent_name: string | null;
+  duplicate_of_name: string | null;
+  creator_username: string | null;
+  similar: SimilarSkill[];
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   total: number | null;

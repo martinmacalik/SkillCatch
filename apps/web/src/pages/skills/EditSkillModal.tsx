@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
+import { setSkillShowCreator } from "../../lib/skill-queries";
 import { colorForIndex } from "./types";
 import type { SkillNode, SkillAttributeDef } from "./types";
 
@@ -42,6 +43,19 @@ export default function EditSkillModal({
   const [status, setStatus] = useState<Status>("watchlist");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const isCreator = !!node.created_by && node.created_by === userId;
+  const [showCreator, setShowCreator] = useState(!!node.show_creator);
+
+  // Optimistic: flip right away, roll back if the RPC fails
+  const toggleShowCreator = async () => {
+    const next = !showCreator;
+    setShowCreator(next);
+    try {
+      await setSkillShowCreator(node.id, next);
+    } catch {
+      setShowCreator(!next);
+    }
+  };
 
   useEffect(() => {
     async function load() {
@@ -205,6 +219,11 @@ export default function EditSkillModal({
             <p className="absolute bottom-4 left-4 text-2xl font-semibold text-white">
               {node.name}
             </p>
+            {node.status === "pending" && (
+              <span className="absolute left-4 top-4 rounded-md bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                Pending review
+              </span>
+            )}
           </div>
         </div>
 
@@ -224,6 +243,27 @@ export default function EditSkillModal({
               </button>
             ))}
           </div>
+
+          {isCreator && (
+            <label className="mb-5 flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+              <span className="text-sm font-medium text-gray-900">Show me as the creator</span>
+              <button
+                role="switch"
+                aria-checked={showCreator}
+                type="button"
+                onClick={() => void toggleShowCreator()}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+                  showCreator ? "bg-purple-700" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    showCreator ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </label>
+          )}
 
           {loading ? (
             <div className="flex h-16 items-center justify-center">

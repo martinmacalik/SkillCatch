@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
 import { useSearch } from '@/contexts/SearchContext'
+import { NotificationsBell } from '@/components/notifications/NotificationsBell'
 
 const searchPlaceholders: Record<string, string> = {
   '/dashboard': 'Search',
@@ -74,6 +75,9 @@ export function TopBar() {
             {profile?.skillcoin_balance ?? 0}
           </span>
         </div>
+
+        {/* Notifications — also on mobile, unlike Settings */}
+        <NotificationsBell />
 
         {/* Settings */}
         <button

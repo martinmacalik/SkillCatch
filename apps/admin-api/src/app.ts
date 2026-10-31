@@ -6,6 +6,7 @@ import { requestsRouter } from './routes/requests';
 import { messagesRouter } from './routes/messages';
 import { auditRouter } from './routes/audit';
 import { suggestionsRouter } from './routes/suggestions';
+import { skillsRouter } from './routes/skills';
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/requests', requestsRouter);
 app.use('/messages', messagesRouter);
 app.use('/audit', auditRouter);
 app.use('/suggestions', suggestionsRouter);
+app.use('/skills', skillsRouter);
 
 app.use(errorHandler);
 

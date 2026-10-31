@@ -4,6 +4,8 @@ import type {
   SupportMessage,
   AuditLogEntry,
   LearningSuggestion,
+  UserCreatedSkill,
+  SimilarSkill,
   PaginatedResponse,
 } from '../types/api';
 
@@ -85,6 +87,26 @@ export const api = {
     apiFetch<LearningSuggestion>(`/suggestions/${id}/deny`, {
       method: 'POST',
       body: JSON.stringify({ deny_reason }),
+    }),
+
+  getUserSkills: (params?: { status?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    return apiFetch<PaginatedResponse<UserCreatedSkill>>(`/skills?${q}`);
+  },
+
+  searchSkills: (q: string) =>
+    apiFetch<{ data: SimilarSkill[] }>(`/skills/search?${new URLSearchParams({ q })}`),
+
+  approveUserSkill: (id: string) =>
+    apiFetch<UserCreatedSkill>(`/skills/${id}/approve`, { method: 'POST' }),
+
+  rejectUserSkill: (id: string, reason: string, duplicate_of: string | null) =>
+    apiFetch<UserCreatedSkill>(`/skills/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, duplicate_of }),
     }),
 
   getAuditLog: (params?: { entity_type?: string; page?: number }) => {

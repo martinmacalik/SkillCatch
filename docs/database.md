@@ -16,6 +16,7 @@
 7. [Restructure requests](#7-restructure-requests)
 8. [Support & admin](#8-support--admin)
 9. [Chat](#9-chat)
+9b. [Notifications](#9b-notifications)
 10. [Storage buckets](#10-storage-buckets)
 11. [RPC functions](#11-rpc-functions)
 12. [Entity-relationship overview](#12-entity-relationship-overview)
@@ -67,8 +68,18 @@ The global skill tree. Hierarchical using both `parent_id` self-reference and an
 | `is_leaf` | bool | true = no children expected |
 | `image_url` | text | optional cover image |
 | `created_at` | timestamptz | |
+| `status` | text | `approved` (default) / `pending` / `rejected`, user-created skills start `pending` |
+| `created_by` | uuid → `auth.users` | creator of a user-created skill (null for the original tree), SET NULL |
+| `show_creator` | bool | creator opted in to "Created by …" being shown |
+| `reviewed_by` / `reviewed_at` | uuid / timestamptz | admin decision |
+| `rejection_reason` | text | shown to the creator in the notification |
+| `duplicate_of` | uuid → `skill_nodes` | rejected as a duplicate of this existing skill, SET NULL |
 
 Virtually every feature table has a `skill_node_id` FK pointing here.
+
+**RLS:** everyone reads `approved` rows. A `pending` row is visible only to its creator, a `rejected` row to nobody (restrictive policy `skill_nodes_hide_unapproved`). No write policies: creation goes through `create_user_skill()`, review through the admin-api (service role).
+
+**Indexes:** trigram GIN on `skill_name_key(name)` (fuzzy search), `(parent_id, skill_name_key(name))` (duplicate check), partial index on pending rows.
 
 ---
 
@@ -542,6 +553,25 @@ A block in either direction: no messages in the pair's 1:1 chat (trigger on `mes
 
 ---
 
+## 9b. Notifications
+
+### `notifications`
+In-app notifications shown under the bell in the top bar. Written only by the admin-api (service role). The UI builds the text from `type` + `data`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | uuid PK | |
+| `user_id` | uuid → `auth.users` | recipient, CASCADE |
+| `type` | text | `skill_approved` / `skill_rejected` |
+| `data` | jsonb | `skill_approved`: `{skill_id, skill_name}`, `skill_rejected`: `{skill_name, reason, duplicate_of_id?, duplicate_of_name?}` |
+| `read_at` | timestamptz | null = unread |
+| `created_at` | timestamptz | |
+
+**RLS:** the recipient reads own rows. No write policies, marking as read goes through `mark_notifications_read()`.
+**Realtime:** in the `supabase_realtime` publication (the bell updates live).
+
+---
+
 ## 10. Storage buckets
 
 ### `avatars`
@@ -615,6 +645,11 @@ All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed (except i
 | `set_message_reaction(p_message_id, p_emoji)` | Sets caller's reaction; same emoji again or NULL removes it. Returns the reaction after the call. |
 | `is_conversation_participant(id)` / `is_conversation_member(id)` | Chat RLS helpers (see section 9). |
 | `can_access_chat_media(p_object_name)` | Storage helper: parses conversation id from the path and checks membership. |
+| `skill_name_key(p_name)` | IMMUTABLE: lowercased, unaccented, whitespace-collapsed name used to compare skills. |
+| `search_skill_nodes(p_query, p_limit?)` | SECURITY INVOKER (RLS applies): substring + trigram search over `skill_name_key`, exact matches first. |
+| `create_user_skill(p_name, p_parent_id, p_show_creator?, p_status?)` | Creates a `pending` leaf under an approved category and adds it to the caller's `user_skills`. Refuses duplicates under the same parent (advisory lock per parent), max 5 pending per user. |
+| `set_skill_show_creator(p_skill_id, p_show)` | Creator toggles "Created by" on their skill. |
+| `mark_notifications_read()` | Sets `read_at = now()` on the caller's unread notifications. |
 
 ---
 

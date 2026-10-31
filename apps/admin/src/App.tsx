@@ -9,6 +9,7 @@ import { MessagesPage } from './pages/MessagesPage';
 import { AuditPage } from './pages/AuditPage';
 import { SuggestionsPage } from './pages/SuggestionsPage';
 import { LearningPage } from './pages/LearningPage';
+import { UserSkillsPage } from './pages/UserSkillsPage';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="/requests" replace />} />
             <Route path="requests" element={<RequestsPage />} />
+            <Route path="skills" element={<UserSkillsPage />} />
             <Route path="messages" element={<MessagesPage />} />
             <Route path="audit" element={<AuditPage />} />
             <Route path="suggestions" element={<SuggestionsPage />} />

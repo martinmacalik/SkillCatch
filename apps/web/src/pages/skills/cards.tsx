@@ -81,6 +81,12 @@ export function LeafCard({
         ) : (
           <div className={`h-41 w-full rounded-xl ${colorForIndex(index)}`} />
         )}
+        {/* only the creator ever sees a pending skill */}
+        {node.status === "pending" && (
+          <span className="absolute left-5 top-5 rounded-md bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800 shadow-sm">
+            Pending review
+          </span>
+        )}
         {action && (
           <div
             className={`absolute right-5 top-5 rounded-md p-1.5 shadow-md ${
@@ -106,6 +112,21 @@ export function LeafCard({
 }
 
 /* ── Branch / category card (wider, grid) ── */
+
+/** Sunken placeholder card at the end of a leaf row, opens the create-skill flow. */
+export function MissingSkillCard({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-56 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-black bg-gray-100 p-6 text-center text-gray-900 transition hover:bg-gray-200"
+      style={{ boxShadow: "inset 0 2px 10px rgba(0,0,0,0.08)" }}
+    >
+      <Plus className="h-6 w-6" />
+      <span className="text-lg font-medium leading-snug">Missing a skill here?</span>
+    </button>
+  );
+}
 
 export function BranchCard({
   node,

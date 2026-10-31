@@ -5,6 +5,10 @@ export interface SkillNode {
   parent_id: string | null;
   is_leaf: boolean;
   image_url: string | null;
+  // user-created skills: 'pending' rows are visible only to their creator (RLS)
+  status?: "pending" | "approved" | "rejected";
+  created_by?: string | null;
+  show_creator?: boolean;
 }
 
 export interface SkillAttributeDef {

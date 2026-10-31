@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
+import { searchSkills } from "../../lib/skill-queries";
 import { useAuth } from "../../contexts/AuthProvider";
 import { useSearch } from "../../contexts/SearchContext";
-import { ScrollRow, LeafCard, BranchCard } from "./cards";
+import { ScrollRow, LeafCard, BranchCard, MissingSkillCard } from "./cards";
 import AddSkillModal, { type AttributeValue } from "./AddSkillModal";
+import CreateSkillModal from "./CreateSkillModal";
 import type { SkillNode, SkillStat } from "./types";
 
 interface AddSkillsViewProps {
@@ -30,6 +32,9 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
 
   const [loading, setLoading] = useState(true);
   const [pendingNode, setPendingNode] = useState<{ node: SkillNode; index: number } | null>(null);
+  // "Can't find it? Create it" form, prefilled from the search / current category
+  const [createDraft, setCreateDraft] = useState<{ name: string; parentId: string | null } | null>(null);
+  const [searchNonce, setSearchNonce] = useState(0); // bump → re-run the search
 
   /* ── data fetching ── */
 
@@ -175,6 +180,21 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
     // Modal closes itself after its success animation via onDone
   };
 
+  /* ── create a new skill ── */
+
+  // The create form found an existing skill → switch to the normal add flow
+  const pickExistingInstead = (node: SkillNode) => {
+    setCreateDraft(null);
+    if (!userSkillIds.has(node.id)) setPendingNode({ node, index: 0 });
+  };
+
+  const handleSkillCreated = (skillId: string) => {
+    setCreateDraft(null);
+    setUserSkillIds((prev) => new Set([...prev, skillId]));
+    setSearchNonce((n) => n + 1); // the new pending skill shows up in the results
+    onSkillAdded();
+  };
+
   /* ── branch navigation ── */
 
   const openBranch = async (node: SkillNode) => {
@@ -217,13 +237,13 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
       return;
     }
     setIsSearching(true);
-    supabase
-      .from("skill_nodes")
-      .select("*")
-      .ilike("name", `%${q}%`)
-      .limit(30)
-      .then(({ data }) => setSearchResults(data ?? []));
-  }, [query]);
+    // ignore a slow response that arrives after the user typed further
+    let stale = false;
+    searchSkills(q)
+      .then((rows) => { if (!stale) setSearchResults(rows); })
+      .catch(() => { if (!stale) setSearchResults([]); });
+    return () => { stale = true; };
+  }, [query, searchNonce]);
 
   /* ── loading ── */
 
@@ -259,7 +279,16 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
             </h2>
           </div>
           {searchResults.length === 0 ? (
-            <p className="py-12 text-center text-sm text-gray-400">No skills found.</p>
+            <div className="flex flex-col items-center gap-3 py-12">
+              <p className="text-sm text-gray-400">No skills found.</p>
+              <button
+                onClick={() => setCreateDraft({ name: query, parentId: null })}
+                className="flex items-center gap-2 rounded-2xl bg-gray-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-700"
+              >
+                <Plus className="h-4 w-4" />
+                Create "{query.trim()}"
+              </button>
+            </div>
           ) : (
             <div className="flex flex-col gap-5">
               {/* Branches first */}
@@ -295,6 +324,15 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
                   ))}
                 </div>
               )}
+              <p className="text-center text-sm text-gray-400">
+                Can't find your skill?{" "}
+                <button
+                  onClick={() => setCreateDraft({ name: query, parentId: null })}
+                  className="font-semibold text-gray-900 underline-offset-2 hover:underline"
+                >
+                  Create it
+                </button>
+              </p>
             </div>
           )}
         </section>
@@ -401,7 +439,7 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
               </h2>
             </div>
 
-            {allSkillsNodes.length === 0 ? (
+            {allSkillsNodes.length === 0 && !currentBranch ? (
               <p className="py-12 text-center text-sm text-gray-400">
                 No skills in this category yet.
               </p>
@@ -422,7 +460,7 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
                       ))}
                   </div>
                 )}
-                {allSkillsNodes.filter((n) => n.is_leaf).length > 0 && (
+                {(currentBranch || allSkillsNodes.some((n) => n.is_leaf)) && (
                   <div className="mt-5 flex flex-wrap gap-4">
                     {allSkillsNodes
                       .filter((n) => n.is_leaf)
@@ -439,6 +477,11 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
                           }
                         />
                       ))}
+                    {currentBranch && (
+                      <MissingSkillCard
+                        onClick={() => setCreateDraft({ name: "", parentId: currentBranch.id })}
+                      />
+                    )}
                   </div>
                 )}
               </>
@@ -455,6 +498,17 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
         onConfirm={confirmAddSkill}
         onCancel={() => setPendingNode(null)}
         onDone={() => setPendingNode(null)}
+      />
+    )}
+
+    {createDraft && (
+      <CreateSkillModal
+        initialName={createDraft.name}
+        initialParentId={createDraft.parentId}
+        userSkillIds={userSkillIds}
+        onPickExisting={pickExistingInstead}
+        onCreated={handleSkillCreated}
+        onClose={() => setCreateDraft(null)}
       />
     )}
     </>

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import { useSearch } from "../../contexts/SearchContext";
 import AddSkillsView from "./AddSkillsView";
 import AllSkillsView from "./AllSkillsView";
@@ -9,6 +10,22 @@ type View = "all" | "add";
 export default function SkillsPage() {
   const { setQuery } = useSearch();
   const [view, setView] = useState<View>("all");
+  const location = useLocation();
+
+  // Link from a notification ("add the existing skill instead") → open Add
+  // Skills with the search prefilled. Keyed on location.key so it also works
+  // when we're already on this page.
+  const addQuery = (location.state as { addQuery?: string } | null)?.addQuery ?? null;
+  const [handledKey, setHandledKey] = useState<string | null>(null);
+  if (addQuery && handledKey !== location.key) {
+    // adjusting own state during render (React's alternative to an effect)
+    setHandledKey(location.key);
+    setView("add");
+  }
+  // the search query lives in a context owned by the layout → sync it after render
+  useEffect(() => {
+    if (addQuery) setQuery(addQuery);
+  }, [location.key, addQuery, setQuery]);
 
   const goTo = (v: View) => {
     if (v !== "add") setQuery("");

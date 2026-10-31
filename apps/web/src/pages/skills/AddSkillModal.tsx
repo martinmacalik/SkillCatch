@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { X, Check } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
+import { fetchCreatorName } from "../../lib/skill-queries";
 import { colorForIndex } from "./types";
 import type { SkillNode, SkillAttributeDef } from "./types";
-
-type Status = "watchlist" | "learning" | "learned" | "dormant";
+import { STATUS_OPTIONS, type Status } from "./skillStatus";
 
 if (typeof document !== "undefined" && !document.getElementById("success-pop-kf")) {
   const s = document.createElement("style");
@@ -12,18 +12,6 @@ if (typeof document !== "undefined" && !document.getElementById("success-pop-kf"
   s.textContent = `@keyframes successPop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }`;
   document.head.appendChild(s);
 }
-
-const STATUS_OPTIONS: {
-  key: Status;
-  label: string;
-  active: string;
-  inactive: string;
-}[] = [
-  { key: "watchlist", label: "Watchlist", active: "bg-violet-600 text-white",  inactive: "bg-violet-50 text-violet-700 hover:bg-violet-100" },
-  { key: "learning",  label: "Learning",  active: "bg-blue-600 text-white",    inactive: "bg-blue-50 text-blue-700 hover:bg-blue-100" },
-  { key: "learned",   label: "Learned",   active: "bg-emerald-600 text-white", inactive: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" },
-  { key: "dormant",   label: "Dormant",   active: "bg-slate-500 text-white",   inactive: "bg-slate-50 text-slate-600 hover:bg-slate-100" },
-];
 
 export interface AttributeValue {
   attribute_def_id: string;
@@ -45,6 +33,13 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel, onDone
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [creatorName, setCreatorName] = useState<string | null>(null);
+
+  // User-created skill whose author opted in to being shown
+  useEffect(() => {
+    if (!node.show_creator || !node.created_by) return;
+    fetchCreatorName(node.created_by).then(setCreatorName);
+  }, [node.show_creator, node.created_by]);
 
   useEffect(() => {
     supabase
@@ -118,7 +113,12 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel, onDone
               <div className={`h-full w-full ${colorForIndex(index)}`} />
             )}
             <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
-            <p className="absolute bottom-4 left-4 text-2xl font-semibold text-white">{node.name}</p>
+            <div className="absolute bottom-4 left-4 right-4">
+              <p className="text-2xl font-semibold text-white">{node.name}</p>
+              {creatorName && (
+                <p className="mt-0.5 text-xs text-white/80">Created by {creatorName}</p>
+              )}
+            </div>
           </div>
         </div>
 
