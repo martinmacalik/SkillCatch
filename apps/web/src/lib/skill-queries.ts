@@ -102,6 +102,26 @@ export async function fetchSkillById(id: string): Promise<SkillNode | null> {
   return (data as SkillNode | null) ?? null
 }
 
+// Add a skill to my profile + the attribute values from the add form
+// (used by the skill browser and the "Add skill" button on a chat card)
+export async function addSkillToProfile(
+  userId: string,
+  skillNodeId: string,
+  status: UserSkillStatus,
+  values: { attribute_def_id: string; value_json: unknown }[],
+): Promise<void> {
+  const { error } = await supabase
+    .from('user_skills')
+    .insert({ user_id: userId, skill_node_id: skillNodeId, status })
+  if (error) throw error
+
+  if (values.length > 0) {
+    await supabase.from('user_skill_attributes').insert(
+      values.map(v => ({ user_id: userId, skill_node_id: skillNodeId, ...v })),
+    )
+  }
+}
+
 // Display name for "Created by …" (only called when show_creator is on)
 export async function fetchCreatorName(userId: string): Promise<string | null> {
   const { data } = await supabase

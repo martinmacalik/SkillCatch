@@ -4,14 +4,20 @@ import { useMessages } from '@/hooks/useMessages'
 import {
   conversationName,
   displayName,
+  fetchMySkillIds,
+  messagePreview,
   MESSAGE_MAX_LENGTH,
   type ConversationSummary,
   type Message,
   type ReactionEmoji,
   type SystemMetadata,
 } from '@/lib/chat-queries'
+import { addSkillToProfile, fetchSkillById } from '@/lib/skill-queries'
+import AddSkillModal from '@/pages/skills/AddSkillModal'
+import type { SkillNode } from '@/pages/skills/types'
 import { ConversationAvatar } from './ChatAvatar'
 import { ChatHeader, type ChatActions } from './ChatHeader'
+import { ComposerPlusMenu } from './ComposerPlusMenu'
 import { MessageRow } from './MessageRow'
 
 // what the composer is doing besides writing a new message
@@ -29,9 +35,22 @@ interface Props {
 
 export function ChatThread({ conversation, isRequest, myId, blockedIds, actions, onAccept, onDecline }: Props) {
   const { id, other } = conversation
-  const { messages, loading, loadingOlder, hasMore, error, loadOlder, send, edit, remove, react } =
+  const { messages, loading, loadingOlder, hasMore, error, loadOlder, send, shareSkill, edit, remove, react } =
     useMessages(id, myId, !isRequest)
   const [draft, setDraft] = useState<Draft>(null)
+  // skill cards: which shared skills I already have, and the one I'm adding
+  const [mySkillIds, setMySkillIds] = useState<Set<string>>(new Set())
+  const [adding, setAdding] = useState<SkillNode | null>(null)
+
+  useEffect(() => {
+    void fetchMySkillIds(myId).then(setMySkillIds).catch(() => {})
+  }, [myId])
+
+  const openAddSkill = async (m: Message) => {
+    if (!m.skill_node_id) return
+    const node = await fetchSkillById(m.skill_node_id)
+    if (node) setAdding(node)
+  }
 
   // 1:1 → the other person; group → look the sender up among the members
   // (someone who left the group isn't a member anymore → "Former member")
@@ -91,6 +110,8 @@ export function ChatThread({ conversation, isRequest, myId, blockedIds, actions,
             onEdit={m => setDraft({ kind: 'edit', message: m })}
             onDelete={handleDelete}
             onReact={(m, emoji) => void react(m.id, emoji)}
+            mySkillIds={mySkillIds}
+            onAddSkill={openAddSkill}
           />
           {/* a block (either way) replaces the input; my own block can be undone here */}
           {conversation.blockedByMe ? (
@@ -107,14 +128,29 @@ export function ChatThread({ conversation, isRequest, myId, blockedIds, actions,
           ) : (
             <Composer
               key={`composer-${id}`}
+              myId={myId}
               draft={draft}
               senderName={senderName}
               onCancelDraft={() => setDraft(null)}
               onSubmit={handleSubmit}
+              onShareSkill={shareSkill}
               disabled={conversation.type === 'direct' && !other}
             />
           )}
         </>
+      )}
+
+      {adding && (
+        <AddSkillModal
+          node={adding}
+          index={adding.name.length}
+          onConfirm={async (values, status) => {
+            await addSkillToProfile(myId, adding.id, status, values)
+            setMySkillIds(prev => new Set(prev).add(adding.id))
+          }}
+          onCancel={() => setAdding(null)}
+          onDone={() => setAdding(null)}
+        />
       )}
     </div>
   )
@@ -183,11 +219,13 @@ interface MessageListProps {
   onEdit: (m: Message) => void
   onDelete: (m: Message) => void
   onReact: (m: Message, emoji: ReactionEmoji) => void
+  mySkillIds: Set<string>
+  onAddSkill: (m: Message) => Promise<void>
 }
 
 function MessageList({
   messages, myId, loading, loadingOlder, hasMore, error, onLoadOlder,
-  isGroup, senderName, onReply, onEdit, onDelete, onReact,
+  isGroup, senderName, onReply, onEdit, onDelete, onReact, mySkillIds, onAddSkill,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const prev = useRef({ firstId: '', lastId: '', scrollHeight: 0, nearBottom: true })
@@ -262,7 +300,7 @@ function MessageList({
             if (m.type === 'system') {
               return (
                 <p key={m.id} className="py-1 text-center text-xs text-gray-400">
-                  {m.metadata ? systemText(m.metadata, myId, senderName) : ''}
+                  {m.metadata ? systemText(m.metadata as SystemMetadata, myId, senderName) : ''}
                 </p>
               )
             }
@@ -288,6 +326,8 @@ function MessageList({
                 onDelete={() => { setActiveId(null); onDelete(m) }}
                 onReact={emoji => { setActiveId(null); onReact(m, emoji) }}
                 onJumpTo={jumpTo}
+                hasSkill={m.skill_node_id !== null && mySkillIds.has(m.skill_node_id)}
+                onAddSkill={() => onAddSkill(m)}
               />
             )
           })}
@@ -314,14 +354,16 @@ function systemText(meta: SystemMetadata, myId: string, senderName: (id: string 
 }
 
 interface ComposerProps {
+  myId: string
   draft: Draft
   senderName: (senderId: string | null) => string
   onCancelDraft: () => void
   onSubmit: (body: string) => Promise<void>
+  onShareSkill: (skillNodeId: string) => Promise<void>
   disabled: boolean
 }
 
-function Composer({ draft, senderName, onCancelDraft, onSubmit, disabled }: ComposerProps) {
+function Composer({ myId, draft, senderName, onCancelDraft, onSubmit, onShareSkill, disabled }: ComposerProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -375,7 +417,7 @@ function Composer({ draft, senderName, onCancelDraft, onSubmit, disabled }: Comp
               <>
                 Replying to <span className="font-semibold text-gray-700">{senderName(draft.message.sender_id)}</span>
                 {': '}
-                {draft.message.body}
+                {messagePreview(draft.message)}
               </>
             )}
           </p>
@@ -385,6 +427,9 @@ function Composer({ draft, senderName, onCancelDraft, onSubmit, disabled }: Comp
         </div>
       )}
       <div className="flex items-end gap-2 rounded-2xl bg-white p-2">
+        {draft?.kind !== 'edit' && (
+          <ComposerPlusMenu myId={myId} disabled={disabled} onShareSkill={onShareSkill} />
+        )}
         <textarea
           ref={inputRef}
           value={text}

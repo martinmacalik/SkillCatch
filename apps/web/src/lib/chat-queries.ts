@@ -58,6 +58,17 @@ export interface SystemMetadata {
   role?: ParticipantRole
 }
 
+// snapshot of the sender's progress, taken by share_skill() when sharing
+// (other people's progress isn't readable, so the card can't load it live)
+export interface SkillShareMetadata {
+  name: string
+  image_url: string | null
+  status: 'watchlist' | 'learning' | 'learned' | 'dormant'
+  level: { name: string; rank: number; total: number } | null
+  progress: { done: number; total: number } | null
+  attributes: { label: string; unit: string | null; value: unknown }[]
+}
+
 export const REACTION_EMOJI = ['👍', '👎', '😂', '😮'] as const
 export type ReactionEmoji = (typeof REACTION_EMOJI)[number]
 
@@ -70,7 +81,9 @@ export interface Reaction {
 export interface ReplyPreview {
   id: string
   sender_id: string | null
+  type: MessageRow['type']
   body: string | null
+  metadata: MessageRow['metadata']
   deleted_at: string | null
 }
 
@@ -82,10 +95,11 @@ export interface MessageRow {
   type: 'text' | 'image' | 'skill' | 'system'
   body: string | null
   reply_to_id: string | null
+  skill_node_id: string | null // 'skill' only; null once the skill itself is deleted
   created_at: string
   edited_at: string | null
   deleted_at: string | null
-  metadata: SystemMetadata | null // system messages only
+  metadata: SystemMetadata | SkillShareMetadata | null // system + skill messages
 }
 
 // + data embedded by the select
@@ -94,17 +108,24 @@ export interface Message extends MessageRow {
   reply_to: ReplyPreview | null
 }
 
-const ROW_COLUMNS = 'id, conversation_id, sender_id, type, body, reply_to_id, created_at, edited_at, deleted_at, metadata'
+const ROW_COLUMNS =
+  'id, conversation_id, sender_id, type, body, reply_to_id, skill_node_id, created_at, edited_at, deleted_at, metadata'
 // message_reactions has an FK to messages → PostgREST can embed it;
 // reply_to embeds the same table through the reply_to_id FK
 const MESSAGE_COLUMNS =
   `${ROW_COLUMNS}, reactions:message_reactions(user_id, emoji), ` +
-  'reply_to:messages!reply_to_id(id, sender_id, body, deleted_at)'
+  'reply_to:messages!reply_to_id(id, sender_id, type, body, metadata, deleted_at)'
 
 // a Realtime payload is a bare row → add the embedded fields
 export function fromRow(row: MessageRow): Message {
   return { ...row, reactions: [], reply_to: null }
 }
+// one-line text of a message for reply previews
+export function messagePreview(m: Pick<ReplyPreview, 'type' | 'body' | 'metadata'>): string {
+  if (m.type === 'skill' && m.metadata) return `Shared skill: ${(m.metadata as SkillShareMetadata).name}`
+  return m.body ?? ''
+}
+
 const PROFILE_COLUMNS = 'id, first_name, last_name, username, avatar_url'
 
 export function displayName(p: ChatProfile | null): string {
@@ -381,6 +402,40 @@ export async function sendTextMessage(
     .single()
   if (error) throw error
   return data as unknown as Message
+}
+
+// card with my progress on the skill; the RPC takes the snapshot (see SkillShareMetadata)
+export async function shareSkill(conversationId: string, skillNodeId: string): Promise<Message> {
+  const { data, error } = await supabase.rpc('share_skill', {
+    p_conversation_id: conversationId,
+    p_skill_node_id: skillNodeId,
+  })
+  if (error) throw error
+  return fetchMessage(data as string)
+}
+
+export interface ShareableSkill {
+  id: string
+  name: string
+  image_url: string | null
+}
+
+// skills in my profile that others can see (pending ones can't be shared)
+export async function fetchShareableSkills(myId: string): Promise<ShareableSkill[]> {
+  const { data, error } = await supabase
+    .from('user_skills')
+    .select('skill_nodes!inner(id, name, image_url, status)')
+    .eq('user_id', myId)
+    .eq('skill_nodes.status', 'approved')
+  if (error) throw error
+  const rows = (data ?? []) as unknown as { skill_nodes: ShareableSkill }[]
+  return rows.map(r => r.skill_nodes).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export async function fetchMySkillIds(myId: string): Promise<Set<string>> {
+  const { data, error } = await supabase.from('user_skills').select('skill_node_id').eq('user_id', myId)
+  if (error) throw error
+  return new Set((data ?? []).map(r => r.skill_node_id as string))
 }
 
 // RLS: only my own, not deleted message; the trigger sets edited_at

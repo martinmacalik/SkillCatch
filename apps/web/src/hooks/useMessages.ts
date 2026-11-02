@@ -9,6 +9,7 @@ import {
   markRead,
   sendTextMessage,
   setReaction,
+  shareSkill as shareSkillMessage,
   MESSAGES_PAGE_SIZE,
   type Message,
   type MessageRow,
@@ -137,6 +138,14 @@ export function useMessages(conversationId: string, myId: string | undefined, en
     [conversationId],
   )
 
+  const shareSkill = useCallback(
+    async (skillNodeId: string) => {
+      const msg = await shareSkillMessage(conversationId, skillNodeId)
+      setMessages(prev => appendUnique(prev, msg))
+    },
+    [conversationId],
+  )
+
   const edit = useCallback(async (messageId: string, body: string) => {
     const row = await editMessage(messageId, body)
     setMessages(prev => applyRow(prev, row))
@@ -174,5 +183,5 @@ export function useMessages(conversationId: string, myId: string | undefined, en
     [myId],
   )
 
-  return { messages, loading: enabled && loading, loadingOlder, hasMore, error, loadOlder, send, edit, remove, react }
+  return { messages, loading: enabled && loading, loadingOlder, hasMore, error, loadOlder, send, shareSkill, edit, remove, react }
 }

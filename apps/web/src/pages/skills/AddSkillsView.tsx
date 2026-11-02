@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, ChevronRight, Plus } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
-import { searchSkills } from "../../lib/skill-queries";
+import { addSkillToProfile, searchSkills } from "../../lib/skill-queries";
 import { useAuth } from "../../contexts/AuthProvider";
 import { useSearch } from "../../contexts/SearchContext";
 import { ScrollRow, LeafCard, BranchCard, MissingSkillCard } from "./cards";
 import AddSkillModal, { type AttributeValue } from "./AddSkillModal";
 import CreateSkillModal from "./CreateSkillModal";
+import type { Status } from "./skillStatus";
 import type { SkillNode, SkillStat } from "./types";
 
 interface AddSkillsViewProps {
@@ -155,26 +156,11 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
 
   // Called when user confirms in the modal — returns a promise so the modal
   // can animate success before it closes itself via onDone.
-  const confirmAddSkill = async (attributeValues: AttributeValue[], status: string): Promise<void> => {
+  const confirmAddSkill = async (attributeValues: AttributeValue[], status: Status): Promise<void> => {
     if (!session?.user || !pendingNode) return;
     const { node } = pendingNode;
 
-    const { error } = await supabase
-      .from("user_skills")
-      .insert({ user_id: session.user.id, skill_node_id: node.id, status });
-
-    if (error) throw error;
-
-    if (attributeValues.length > 0) {
-      await supabase.from("user_skill_attributes").insert(
-        attributeValues.map((av) => ({
-          user_id: session.user.id,
-          skill_node_id: node.id,
-          attribute_def_id: av.attribute_def_id,
-          value_json: av.value_json,
-        }))
-      );
-    }
+    await addSkillToProfile(session.user.id, node.id, status, attributeValues);
     setUserSkillIds((prev) => new Set([...prev, node.id]));
     onSkillAdded();
     // Modal closes itself after its success animation via onDone

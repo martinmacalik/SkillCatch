@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 're
 import { Pencil, Reply, Smile, Trash2, X } from 'lucide-react'
 import {
   formatChatTime,
+  messagePreview,
   REACTION_EMOJI,
   type Message,
   type ReactionEmoji,
   type ReplyPreview,
 } from '@/lib/chat-queries'
+import { SkillShareCard } from './SkillShareCard'
 
 interface Props {
   message: Message
@@ -22,14 +24,17 @@ interface Props {
   onDelete: () => void
   onReact: (emoji: ReactionEmoji) => void
   onJumpTo: (messageId: string) => void
+  hasSkill: boolean // skill cards: I already have the shared skill
+  onAddSkill: () => Promise<void>
 }
 
 // One message = one full-width row. Hovering anywhere on the row shows the
 // toolbar next to the bubble (edit + delete only for my own messages).
 export function MessageRow({
   message, mine, senderLabel, replyTarget, senderName, active, highlighted,
-  onActivate, onReply, onEdit, onDelete, onReact, onJumpTo,
+  onActivate, onReply, onEdit, onDelete, onReact, onJumpTo, hasSkill, onAddSkill,
 }: Props) {
+  const isSkill = message.type === 'skill'
   const [pickerOpen, setPickerOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
 
@@ -81,7 +86,8 @@ export function MessageRow({
         </>
       ) : mine ? (
         <>
-          <ToolButton title="Edit" onClick={onEdit}><Pencil className="h-4 w-4" /></ToolButton>
+          {/* a skill card is a snapshot → nothing to edit */}
+          {!isSkill && <ToolButton title="Edit" onClick={onEdit}><Pencil className="h-4 w-4" /></ToolButton>}
           <ToolButton title="Delete" onClick={onDelete}><Trash2 className="h-4 w-4" /></ToolButton>
           {replyButton}
           {reactButton}
@@ -108,33 +114,40 @@ export function MessageRow({
 
       <div className={`flex max-w-[75%] flex-col ${mine ? 'items-end' : 'items-start'}`}>
         {senderLabel && <p className="mb-0.5 mt-1 px-2 text-xs font-medium text-gray-500">{senderLabel}</p>}
-        <div
-          className={`relative rounded-2xl px-3.5 py-2 text-sm ${
-            mine ? 'rounded-br-md bg-linear-to-br from-indigo-600 to-fuchsia-600 text-white' : 'rounded-bl-md bg-white text-gray-900'
-          } ${reactionMargin(message.reactions)}`}
-        >
-          {replyTarget && (
-            <button
-              onClick={e => { e.stopPropagation(); onJumpTo(replyTarget.id) }}
-              className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left text-xs ${
-                mine ? 'border-white/60 bg-white/15 text-white/85' : 'border-purple-400 bg-gray-100 text-gray-500'
-              }`}
-            >
-              <span className="font-semibold">{senderName(replyTarget.sender_id)}</span>
-              <span className="line-clamp-1 italic">
-                {replyTarget.deleted_at ? 'Message deleted' : replyTarget.body}
-              </span>
-            </button>
-          )}
+        {isSkill ? (
+          <div className={`relative ${reactionMargin(message.reactions)}`}>
+            <SkillShareCard message={message} mine={mine} hasSkill={hasSkill} onAdd={onAddSkill} />
+            <Reactions message={message} mine={mine} onReact={onReact} />
+          </div>
+        ) : (
+          <div
+            className={`relative rounded-2xl px-3.5 py-2 text-sm ${
+              mine ? 'rounded-br-md bg-linear-to-br from-indigo-600 to-fuchsia-600 text-white' : 'rounded-bl-md bg-white text-gray-900'
+            } ${reactionMargin(message.reactions)}`}
+          >
+            {replyTarget && (
+              <button
+                onClick={e => { e.stopPropagation(); onJumpTo(replyTarget.id) }}
+                className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left text-xs ${
+                  mine ? 'border-white/60 bg-white/15 text-white/85' : 'border-purple-400 bg-gray-100 text-gray-500'
+                }`}
+              >
+                <span className="font-semibold">{senderName(replyTarget.sender_id)}</span>
+                <span className="line-clamp-1 italic">
+                  {replyTarget.deleted_at ? 'Message deleted' : messagePreview(replyTarget)}
+                </span>
+              </button>
+            )}
 
-          <p className="whitespace-pre-wrap break-words">{message.body}</p>
-          <p className={`mt-0.5 text-right text-[10px] ${mine ? 'text-white/70' : 'text-gray-400'}`}>
-            {message.edited_at && 'edited · '}
-            {formatChatTime(message.created_at)}
-          </p>
+            <p className="whitespace-pre-wrap break-words">{message.body}</p>
+            <p className={`mt-0.5 text-right text-[10px] ${mine ? 'text-white/70' : 'text-gray-400'}`}>
+              {message.edited_at && 'edited · '}
+              {formatChatTime(message.created_at)}
+            </p>
 
-          <Reactions message={message} mine={mine} onReact={onReact} />
-        </div>
+            <Reactions message={message} mine={mine} onReact={onReact} />
+          </div>
+        )}
       </div>
 
       {!mine && toolbar}
