@@ -7,10 +7,11 @@ import { BottomNav } from './BottomNav'
 export function DashboardLayout() {
   return (
     <div className="flex h-screen gap-2 overflow-hidden bg-white p-2 text-gray-900 sm:gap-4 sm:p-4">
-      {/* Gradient defs shared by Sidebar (desktop) and BottomNav (mobile) */}
+      {/* Gradient defs shared by Sidebar (desktop) and BottomNav (mobile).
+          userSpaceOnUse = the icon's 24×24 viewBox, so multi-path icons share one gradient. */}
       <svg aria-hidden="true" style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
         <defs>
-          <linearGradient id="navIconGrad" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+          <linearGradient id="navIconGrad" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor="#4f46e5" />
             <stop offset="100%" stopColor="#c026d3" />
           </linearGradient>

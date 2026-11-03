@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthProvider'
 import { colorForIndex } from './skills/types'
 import type { SkillNode } from './skills/types'
 import EditSkillModal from './skills/EditSkillModal'
+import { useConversations } from '@/hooks/useConversations'
+import { conversationName, formatChatTime } from '@/lib/chat-queries'
+import { ConversationAvatar } from '@/components/chat/ChatAvatar'
 
 /* ── helpers ── */
 
@@ -35,6 +38,11 @@ export default function DashboardPage() {
   const [pinnedSkills, setPinnedSkills] = useState<SkillNode[]>([])
   const [learningSkills, setLearningSkills] = useState<SkillNode[]>([])
   const [editingNode, setEditingNode] = useState<{ node: SkillNode; index: number } | null>(null)
+
+  // live chat list (same hook as ChatsPage) → "New Chats" = unread chats + incoming requests
+  const chats = useConversations(session?.user.id)
+  const newChatsCount = chats.requests.length + chats.conversations.filter(c => c.unread).length
+  const recentChats = [...chats.requests, ...chats.conversations].slice(0, 5)
 
   useEffect(() => {
     if (!session?.user) return
@@ -180,7 +188,13 @@ export default function DashboardPage() {
 
           <StatCard shortLabel="Streak" title="Day Streak" value={String(dayStreak)} badgeLabel="Consecutive login days" onArrowClick={() => navigate('/dashboard/learn')} />
           <StatCard shortLabel="Learning" title="Skills Learning" value={String(learningCount)} badgeLabel="Currently in progress" onArrowClick={() => navigate('/dashboard/learn')} />
-          <StatCard shortLabel="Chats" title="New Chats" value="0" badgeLabel="Coming soon" />
+          <StatCard
+            shortLabel="Chats"
+            title="New Chats"
+            value={String(newChatsCount)}
+            badgeLabel={chats.requests.length > 0 ? `${chats.requests.length} chat request${chats.requests.length === 1 ? '' : 's'}` : 'Unread conversations'}
+            onArrowClick={() => navigate('/dashboard/chats')}
+          />
         </div>
 
         {/* ── Rows 2 & 3 Combined – Custom Asymmetric Grid ── */}
@@ -234,18 +248,51 @@ export default function DashboardPage() {
           {/* Chats: tablet col1 row1 | desktop rows 3-4, cols 1-2 */}
           <div className="flex min-h-48 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-1 2xl:col-span-2 2xl:col-start-1 2xl:row-start-3 2xl:row-end-5 2xl:min-h-0">
             <div className="flex shrink-0 items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-semibold text-gray-900">Chats</h3>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">Coming soon</span>
-              </div>
-              <button className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200">
-                Edit
+              <h3 className="text-base font-semibold text-gray-900">Chats</h3>
+              <button
+                onClick={() => navigate('/dashboard/chats')}
+                className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200"
+              >
+                See all
               </button>
             </div>
 
-            <div className="flex flex-1 items-center justify-center">
-              <p className="text-sm text-gray-400">No chats yet</p>
-            </div>
+            {chats.loading ? (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-gray-200 border-t-purple-600" />
+              </div>
+            ) : recentChats.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-sm text-gray-400">No chats yet</p>
+              </div>
+            ) : (
+              <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                {recentChats.map(c => {
+                  const isRequest = chats.requests.includes(c)
+                  return (
+                    <Link
+                      key={c.id}
+                      to={`/dashboard/chats/${c.id}`}
+                      className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-gray-50"
+                    >
+                      <ConversationAvatar conversation={c} className="h-9 w-9" />
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-sm text-gray-900 ${c.unread || isRequest ? 'font-bold' : 'font-medium'}`}>
+                          {conversationName(c)}
+                        </p>
+                        {isRequest && <p className="truncate text-xs text-purple-600">Chat request</p>}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className={`text-xs ${c.unread ? 'font-semibold text-purple-600' : 'text-gray-400'}`}>
+                          {formatChatTime(c.lastMessageAt ?? c.createdAt)}
+                        </span>
+                        {(c.unread || isRequest) && <span className="h-2 w-2 rounded-full bg-purple-600" />}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Pinned Skills: tablet col2 row3 | desktop rows 3-4, cols 3-5 */}

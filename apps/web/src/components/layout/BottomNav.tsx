@@ -1,21 +1,21 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  MessageSquare,
-  Wrench,
+  Home,
+  Message,
+  Puzzle,
   BookOpen,
   Compass,
-  LogOut,
-  type LucideIcon,
-} from 'lucide-react'
+  Logout2,
+  type IconComponent,
+} from 'reicon-react'
 import { supabase } from '@/lib/supabaseClient'
 
-const navItems: { icon: LucideIcon; to: string; end?: boolean }[] = [
-  { icon: LayoutDashboard, to: '/dashboard',          end: true },
-  { icon: MessageSquare,   to: '/dashboard/chats' },
-  { icon: Wrench,          to: '/dashboard/skills' },
-  { icon: BookOpen,        to: '/dashboard/learn' },
-  { icon: Compass,         to: '/dashboard/discover' },
+const navItems: { icon: IconComponent; to: string; end?: boolean }[] = [
+  { icon: Home,     to: '/dashboard',          end: true },
+  { icon: Message,  to: '/dashboard/chats' },
+  { icon: Puzzle,   to: '/dashboard/skills' },
+  { icon: BookOpen, to: '/dashboard/learn' },
+  { icon: Compass,  to: '/dashboard/discover' },
 ]
 
 export function BottomNav() {
@@ -38,8 +38,8 @@ export function BottomNav() {
                 }`}
               >
                 <item.icon
-                  className={`h-5 w-5 ${!isActive ? 'text-gray-400' : ''}`}
-                  style={isActive ? { stroke: 'url(#navIconGrad)' } : {}}
+                  weight={isActive ? 'Filled' : 'Outline'}
+                  className={`h-5 w-5 ${isActive ? 'nav-icon-active' : 'text-gray-400'}`}
                 />
               </div>
             )}
@@ -54,7 +54,7 @@ export function BottomNav() {
           onClick={handleLogout}
           className="rounded-xl p-3 transition-colors hover:bg-gray-50"
         >
-          <LogOut className="h-5 w-5 text-gray-400" />
+          <Logout2 className="h-5 w-5 text-gray-400" />
         </button>
       </div>
     </nav>

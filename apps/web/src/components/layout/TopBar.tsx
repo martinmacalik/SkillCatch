@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, Settings } from 'lucide-react'
+import { Search, Settings } from 'reicon-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
@@ -69,9 +69,12 @@ export function TopBar() {
       {/* Profile section */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* SkillCoins */}
-        <div className="relative hidden h-10 w-10 shrink-0 sm:block">
-          <img src="/coin.svg" alt="" className="h-full w-full" />
-          <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-black">
+        <div
+          className="hidden h-11 shrink-0 items-center gap-1.5 rounded-full bg-gray-200 pl-2.5 pr-4 sm:flex"
+          title="SkillCoins"
+        >
+          <img src="/coin.png" alt="" className="h-6 w-6 drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]" />
+          <span className="text-sm font-semibold text-gray-900">
             {profile?.skillcoin_balance ?? 0}
           </span>
         </div>
@@ -82,7 +85,7 @@ export function TopBar() {
         {/* Settings */}
         <button
           onClick={() => navigate('/dashboard/settings')}
-          className="hidden h-10 w-10 items-center justify-center rounded-full bg-gray-200 transition hover:bg-gray-300 sm:flex"
+          className="hidden h-11 w-11 items-center justify-center rounded-full bg-gray-200 transition hover:bg-gray-300 sm:flex"
           title="Settings"
         >
           <Settings className="h-4 w-4 text-gray-600" />

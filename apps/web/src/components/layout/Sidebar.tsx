@@ -1,30 +1,30 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  LayoutDashboard,
-  MessageSquare,
-  Wrench,
+  Home,
+  Message,
+  Puzzle,
   BookOpen,
   Compass,
   Settings,
   HelpCircle,
-  LogOut,
-  type LucideIcon,
-} from 'lucide-react'
+  Logout2,
+  type IconComponent,
+} from 'reicon-react'
 
 import { cn } from '@/lib/cn'
 import { supabase } from '@/lib/supabaseClient'
 import TextLogoBlack from '@/assets/TextLogoColor.png'
 
-const menuItems: { icon: LucideIcon; label: string; to: string }[] = [
-  { icon: LayoutDashboard, label: 'Overview',  to: '/dashboard' },
-  { icon: MessageSquare,   label: 'Chats',     to: '/dashboard/chats' },
-  { icon: Wrench,          label: 'Skills',    to: '/dashboard/skills' },
-  { icon: BookOpen,        label: 'Learn',     to: '/dashboard/learn' },
-  { icon: Compass,         label: 'Discover',  to: '/dashboard/discover' },
+const menuItems: { icon: IconComponent; label: string; to: string }[] = [
+  { icon: Home,     label: 'Overview',  to: '/dashboard' },
+  { icon: Message,  label: 'Chats',     to: '/dashboard/chats' },
+  { icon: Puzzle,   label: 'Skills',    to: '/dashboard/skills' },
+  { icon: BookOpen, label: 'Learn',     to: '/dashboard/learn' },
+  { icon: Compass,  label: 'Discover',  to: '/dashboard/discover' },
 ]
 
-const generalItems: { icon: LucideIcon; label: string; to: string }[] = [
+const generalItems: { icon: IconComponent; label: string; to: string }[] = [
   { icon: Settings,   label: 'Settings', to: '/dashboard/settings' },
   { icon: HelpCircle, label: 'Help',     to: '/dashboard/help' },
 ]
@@ -121,8 +121,8 @@ export function Sidebar() {
                 {({ isActive }) => (
                   <>
                     <item.icon
-                      className="h-5.5 w-5.5 shrink-0"
-                      style={isActive ? { stroke: 'url(#navIconGrad)' } : {}}
+                      weight={isActive ? 'Filled' : 'Outline'}
+                      className={cn('h-5.5 w-5.5 shrink-0', isActive && 'nav-icon-active')}
                     />
                     {item.label}
                   </>
@@ -153,8 +153,8 @@ export function Sidebar() {
                 {({ isActive }) => (
                   <>
                     <item.icon
-                      className="h-5.5 w-5.5 shrink-0"
-                      style={isActive ? { stroke: 'url(#navIconGrad)' } : {}}
+                      weight={isActive ? 'Filled' : 'Outline'}
+                      className={cn('h-5.5 w-5.5 shrink-0', isActive && 'nav-icon-active')}
                     />
                     {item.label}
                   </>
@@ -167,7 +167,7 @@ export function Sidebar() {
             onClick={handleLogout}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-gray-500 transition-colors hover:text-gray-800"
           >
-            <LogOut className="h-5.5 w-5.5 shrink-0" />
+            <Logout2 className="h-5.5 w-5.5 shrink-0" />
             Logout
           </button>
         </nav>

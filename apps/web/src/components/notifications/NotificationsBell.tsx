@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bell, CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
+import { Bell } from 'reicon-react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '@/hooks/useNotifications'
 import type { AppNotification } from '@/lib/notification-queries'
@@ -55,7 +56,7 @@ export function NotificationsBell() {
     <div ref={rootRef} className="relative">
       <button
         onClick={toggle}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 transition hover:bg-gray-300"
+        className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 sm:h-11 sm:w-11 transition hover:bg-gray-300"
         title="Notifications"
         aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
       >

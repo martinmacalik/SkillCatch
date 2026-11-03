@@ -118,6 +118,13 @@
   animation: fade-in 450ms ease both;
 }
 
+/* Active nav icon (Reicon, weight="Filled"): paint its paths with the shared
+   #navIconGrad from DashboardLayout. A CSS rule beats the fill="currentColor"
+   attribute on the paths. */
+.nav-icon-active path {
+  fill: url(#navIconGrad);
+}
+
 @theme inline {
   --font-sans: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
