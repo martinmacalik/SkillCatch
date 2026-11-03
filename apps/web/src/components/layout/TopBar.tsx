@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, Settings } from 'reicon-react'
+import { Flash, Search, Settings } from 'reicon-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
@@ -27,6 +27,7 @@ export function TopBar() {
     first_name: string | null
     last_name: string | null
     skillcoin_balance: number
+    xp: number
     avatar_url: string | null
   } | null>(null)
 
@@ -34,7 +35,7 @@ export function TopBar() {
     if (!session?.user) return
     supabase
       .from('profiles')
-      .select('first_name, last_name, skillcoin_balance, avatar_url')
+      .select('first_name, last_name, skillcoin_balance, xp, avatar_url')
       .eq('id', session.user.id)
       .single()
       .then(({ data }) => { if (data) setProfile(data) })
@@ -68,16 +69,22 @@ export function TopBar() {
 
       {/* Profile section */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* SkillCoins */}
-        <div
-          className="hidden h-11 shrink-0 items-center gap-1.5 rounded-full bg-gray-200 pl-2.5 pr-4 sm:flex"
-          title="SkillCoins"
+        {/* SkillCoins + XP → Rewards page */}
+        <button
+          onClick={() => navigate('/dashboard/rewards')}
+          className="hidden h-11 shrink-0 items-center gap-3 rounded-full bg-gray-200 pl-2.5 pr-4 transition hover:bg-gray-300 sm:flex"
+          title="Rewards"
         >
-          <img src="/coin.png" alt="" className="h-6 w-6 drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]" />
-          <span className="text-sm font-semibold text-gray-900">
-            {profile?.skillcoin_balance ?? 0}
+          <span className="flex items-center gap-1.5">
+            <img src="/coin.png" alt="" className="h-6 w-6 drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]" />
+            <span className="text-sm font-semibold text-gray-900">{profile?.skillcoin_balance ?? 0}</span>
           </span>
-        </div>
+          <span className="h-5 w-px bg-gray-300" />
+          <span className="flex items-center gap-1">
+            <Flash weight="Filled" className="nav-icon-active h-5 w-5" />
+            <span className="text-sm font-semibold text-gray-900">{profile?.xp ?? 0} XP</span>
+          </span>
+        </button>
 
         {/* Notifications — also on mobile, unlike Settings */}
         <NotificationsBell />

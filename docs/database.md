@@ -49,6 +49,7 @@ One row per user. Created automatically on sign-up via trigger.
 | `notif_qa_answers` | bool | notification preference |
 | `notif_proposal_updates` | bool | notification preference |
 | `skillcoin_balance` | int ≥ 0 | maintained by `award_skillcoins()` RPC |
+| `xp` | int ≥ 0 | maintained by `award_xp()` RPC, drives the user's level |
 | `created_at` / `updated_at` | timestamptz | |
 
 **RLS:** Any authenticated user can read. Only the owner can update their own row.
@@ -362,6 +363,9 @@ Append-only ledger. The running balance is denormalized into `profiles.skillcoin
 | `reference_id` | uuid | optional — links to the triggering entity |
 | `created_at` | timestamptz | |
 
+### `xp_transactions`
+Same shape as `skillcoin_transactions`, for XP. XP only grows (no debits). The total is denormalized into `profiles.xp`; the level is computed in the frontend (`apps/web/src/lib/rewards.ts`).
+
 **Index:** `(user_id, created_at DESC)` for timeline view.
 **RLS:** Self-read only.
 
@@ -620,6 +624,7 @@ All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed (except i
 |----------|-------------|
 | `approve_restructure_request(p_request_id, p_actor_user_id)` | Validates actor is admin, applies the proposal to the skill tree, awards 10 Skillcoins to requester, writes audit log. |
 | `award_skillcoins(p_user_id, p_amount, p_reason, p_reference_id?)` | Increments `profiles.skillcoin_balance` and inserts a `skillcoin_transactions` row. |
+| `award_xp(p_user_id, p_amount, p_reason, p_reference_id?)` | Increments `profiles.xp` and inserts an `xp_transactions` row. |
 | `delete_own_account()` | Deletes the caller's `auth.users` row; all user data cascades. |
 | `reorder_profile_cards(p_user_id, p_ids)` | Sets `position` = array index for each card; validates caller = owner. |
 | `reorder_learning_blocks(p_page_id, p_ids)` | Sets `sort_order` = array index for each block; requires editor role. |
@@ -659,7 +664,8 @@ All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed (except i
 auth.users
   │
   ├── profiles  (1:1, skillcoin_balance denormalized here)
-  │     └── skillcoin_transactions  (1:N)
+  │     ├── skillcoin_transactions  (1:N)
+  │     └── xp_transactions  (1:N)
   │
   ├── user_roles  (1:N)
   │

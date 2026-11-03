@@ -171,6 +171,7 @@ function SkillFeedbackLink() {
 /* ─── Main page ──────────────────────────────────────────────────────── */
 
 export default function HelpPage() {
+  const navigate = useNavigate()
   return (
     <div className="flex flex-col gap-5">
       {/* Page header */}
@@ -258,7 +259,7 @@ export default function HelpPage() {
             <div>
               <p className="mb-1 text-sm font-semibold text-gray-800">How do I earn them?</p>
               <p className="text-sm leading-relaxed text-gray-500">
-                Coins are awarded automatically as you learn. Adding a skill, advancing its status, and maintaining a daily streak all contribute to your balance.
+                Mostly by helping the app grow: adding learning content, suggesting new skills and improving the skill structure. Long login streaks add a bonus too.
               </p>
             </div>
 
@@ -268,7 +269,22 @@ export default function HelpPage() {
                 Spending options — unlocking resources, mentor sessions, and exclusive content — are coming soon as the platform grows.
               </p>
             </div>
+
+            <div>
+              <p className="mb-1 text-sm font-semibold text-gray-800">And XP?</p>
+              <p className="text-sm leading-relaxed text-gray-500">
+                XP measures how much you learn and raises your level. Learning earns mostly XP, contributing to the app earns mostly Skillcoins.
+              </p>
+            </div>
           </div>
+
+          <button
+            onClick={() => navigate('/dashboard/rewards')}
+            className="mt-6 flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+          >
+            See rewards and how to earn
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Skill structure feedback — links to dedicated builder page */}

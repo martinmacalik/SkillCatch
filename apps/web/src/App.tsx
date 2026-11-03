@@ -17,6 +17,7 @@ import HelpPage from './pages/HelpPage'
 import SkillFeedbackPage from './pages/SkillFeedbackPage'
 import ProfileBuilderPage from './pages/ProfileBuilderPage'
 import PublicProfilePage from './pages/PublicProfilePage'
+import RewardsPage from './pages/RewardsPage'
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="help" element={<HelpPage />} />
         <Route path="skill-feedback" element={<SkillFeedbackPage />} />
         <Route path="profile-builder" element={<ProfileBuilderPage />} />
+        <Route path="rewards" element={<RewardsPage />} />
       </Route>
       <Route
         path="/profile"

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { X, Coins, Heading, Type, Lightbulb, Link2, Layers, ListChecks } from 'lucide-react'
 
-const BLOCK_INFO = [
+// exported → RewardsPage lists the same block rewards
+export const BLOCK_INFO = [
   {
     type: 'heading',
     label: 'Heading',
