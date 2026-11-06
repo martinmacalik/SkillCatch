@@ -10,6 +10,7 @@ import {
   deleteSkillLevel,
   type SkillLevel,
 } from '@/lib/levelup-queries'
+import { RewardHint } from '@/components/rewards/RewardHint'
 
 interface Props {
   skillNodeId: string
@@ -131,6 +132,7 @@ export function LevelUpPage({ skillNodeId, isEditing }: Props) {
     <div className="mt-6 flex flex-col gap-3 pb-32">
       <p className="text-sm text-gray-500 mb-2">
         Find the level that best describes where you are today and mark it — it saves to your profile.
+        <RewardHint id="level_up" title="Each time you move up a level" className="ml-2" />
       </p>
 
       {levels.map((level, idx) => {

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
 import { SortableCardList, type ProfileCard } from '@/components/profile-builder/SortableCardList'
 import { CardEditorPanel } from '@/components/profile-builder/CardEditorPanel'
+import { RewardHint } from '@/components/rewards/RewardHint'
 
 type CardType = ProfileCard['type']
 
@@ -101,7 +102,10 @@ export default function ProfileBuilderPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+            My Profile
+            <RewardHint id="complete_profile" title="For a complete profile: photo, bio and profile cards" />
+          </h1>
           <p className="mt-0.5 text-sm text-gray-400">Build how others see you on SkillCatch</p>
         </div>
         <a

@@ -78,6 +78,14 @@ export function UserSkillCard({ skill, onUpdate }: Props) {
           <StatusBadge status={skill.status} />
           <span className="text-white font-medium text-sm">{skill.name}</span>
           <span className="text-neutral-500 text-xs">in {skill.parent_name ?? 'unknown category'}</span>
+          {skill.parent_is_new && (
+            <span
+              className="text-amber-300 bg-amber-500/10 rounded px-1.5 py-0.5 text-[10px]"
+              title="Approving the skill approves this category too; rejecting it rejects the category if nothing else is in it."
+            >
+              new category{skill.parent_parent_name ? ` in ${skill.parent_parent_name}` : ' (top level)'}
+            </span>
+          )}
         </div>
         <p className="text-neutral-500 text-xs">
           by {skill.creator_username ?? 'unknown user'}

@@ -5,6 +5,7 @@ import { fetchCreatorName } from "../../lib/skill-queries";
 import { colorForIndex } from "./types";
 import type { SkillNode, SkillAttributeDef } from "./types";
 import { STATUS_OPTIONS, type Status } from "./skillStatus";
+import { RewardHint } from "@/components/rewards/RewardHint";
 
 if (typeof document !== "undefined" && !document.getElementById("success-pop-kf")) {
   const s = document.createElement("style");
@@ -130,16 +131,22 @@ export default function AddSkillModal({ node, index, onConfirm, onCancel, onDone
               <button
                 key={opt.key}
                 onClick={() => setStatus(opt.key)}
-                className={`cursor-pointer rounded-xl py-1.5 text-xs font-semibold transition ${
+                className={`relative cursor-pointer rounded-xl py-1.5 text-xs font-semibold transition ${
                   status === opt.key ? opt.active : opt.inactive
                 }`}
               >
                 {opt.label}
+                {opt.key === "learning" && (
+                  <RewardHint id="start_learning" title="For moving a skill to Learning" className="absolute -right-2 -top-3" />
+                )}
               </button>
             ))}
           </div>
 
-          <h2 className="text-lg font-semibold text-gray-900">Add skill to your profile</h2>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+            Add skill to your profile
+            <RewardHint id="add_skill" />
+          </h2>
           <p className="mt-0.5 text-sm text-gray-400">
             {loading ? "Loading attributes…" : defs.length > 0 ? "Fill in your details below" : "No attributes defined for this skill"}
           </p>

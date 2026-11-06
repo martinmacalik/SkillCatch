@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Plus, Heading, Type, Lightbulb, ListChecks, Layers, Link2 } from 'lucide-react'
 import type { BlockType } from '@/lib/learn-queries'
+import { rewardRule } from '@/lib/rewards'
+import { RewardBadges } from '@/components/rewards/RewardHint'
+import { BLOCK_INFO } from './blockInfo'
 
 const BLOCK_OPTIONS: { type: BlockType; label: string; description: string; Icon: typeof Plus }[] = [
   { type: 'heading',       label: 'Heading',     description: 'Section title — appears in the navigation', Icon: Heading },
@@ -60,6 +63,11 @@ export function AddBlockMenu({ onAdd }: { onAdd: (type: BlockType) => void }) {
               <p className="text-sm font-medium text-black">{opt.label}</p>
               <p className="truncate text-xs text-gray-400">{opt.description}</p>
             </div>
+            <RewardBadges
+              xp={rewardRule('add_content').xp}
+              coins={BLOCK_INFO.find(b => b.type === opt.type)?.coins}
+              className="mt-1"
+            />
           </button>
         ))}
       </div>

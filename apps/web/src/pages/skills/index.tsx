@@ -15,9 +15,11 @@ export default function SkillsPage() {
   // Link from a notification ("add the existing skill instead") → open Add
   // Skills with the search prefilled. Keyed on location.key so it also works
   // when we're already on this page.
-  const addQuery = (location.state as { addQuery?: string } | null)?.addQuery ?? null;
+  // Rewards page buttons → open Add Skills (openAdd) or straight the create form (createSkill).
+  const navState = location.state as { addQuery?: string; openAdd?: boolean; createSkill?: boolean } | null;
+  const addQuery = navState?.addQuery ?? null;
   const [handledKey, setHandledKey] = useState<string | null>(null);
-  if (addQuery && handledKey !== location.key) {
+  if ((addQuery || navState?.openAdd || navState?.createSkill) && handledKey !== location.key) {
     // adjusting own state during render (React's alternative to an effect)
     setHandledKey(location.key);
     setView("add");
@@ -47,7 +49,7 @@ export default function SkillsPage() {
           </button>
           <h1 className="text-3xl font-normal text-gray-900">Add Skills</h1>
         </div>
-        <AddSkillsView onSkillAdded={() => {}} />
+        <AddSkillsView onSkillAdded={() => {}} openCreate={navState?.createSkill === true} />
       </div>
     );
   }

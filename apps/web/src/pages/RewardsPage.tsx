@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Flash, Lock, ShoppingBag } from 'reicon-react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, Flash, Lock, ShoppingBag } from 'reicon-react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
 import { REWARD_GROUPS, levelFor, xpForLevel, type RewardRule } from '@/lib/rewards'
@@ -76,11 +77,14 @@ export default function RewardsPage() {
       <div className="grid grid-cols-1 gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-2">
         <section className="flex flex-col rounded-2xl bg-white p-6 lg:min-h-0">
           <h2 className="shrink-0 text-base font-semibold text-gray-900">How to earn</h2>
+          <p className="mt-1 shrink-0 text-sm text-gray-500">
+            SkillCoins are paid only for contributions an admin approves. XP for each skill counts once, and
+            gaming them only fools yourself: they measure your own learning.
+          </p>
           <div className="mt-4 flex flex-col gap-6 lg:min-h-0 lg:overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
             {REWARD_GROUPS.map(group => (
               <div key={group.title}>
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">{group.title}</p>
-                <p className="mb-2 text-sm text-gray-500">{group.subtitle}</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">{group.title}</p>
                 <div className="flex flex-col gap-1.5">
                   {group.rules.map(rule => <RuleRow key={rule.label} rule={rule} />)}
                 </div>
@@ -179,6 +183,19 @@ function RuleRow({ rule }: { rule: RewardRule }) {
           </span>
         )}
       </div>
+      {/* fixed width → badges stay aligned whether a row has a button or not */}
+      {rule.action ? (
+        <Link
+          to={rule.action.to}
+          state={rule.action.state}
+          className="flex w-28 shrink-0 items-center justify-center gap-1 rounded-full bg-white py-1.5 text-xs font-medium text-gray-700 shadow-sm transition hover:bg-gray-900 hover:text-white"
+        >
+          {rule.action.label}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      ) : (
+        <div className="w-28 shrink-0" />
+      )}
     </div>
   )
 }

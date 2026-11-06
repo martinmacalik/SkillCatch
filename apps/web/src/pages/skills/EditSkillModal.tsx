@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { setSkillShowCreator } from "../../lib/skill-queries";
 import { colorForIndex } from "./types";
 import type { SkillNode, SkillAttributeDef } from "./types";
+import { RewardHint } from "@/components/rewards/RewardHint";
 
 type Status = "watchlist" | "learning" | "learned" | "dormant";
 type Mode = "view" | "edit";
@@ -235,11 +236,14 @@ export default function EditSkillModal({
               <button
                 key={opt.key}
                 onClick={() => handleStatusChange(opt.key)}
-                className={`cursor-pointer rounded-xl py-1.5 text-xs font-semibold transition ${
+                className={`relative cursor-pointer rounded-xl py-1.5 text-xs font-semibold transition ${
                   status === opt.key ? opt.active : opt.inactive
                 }`}
               >
                 {opt.label}
+                {opt.key === "learning" && status !== "learning" && (
+                  <RewardHint id="start_learning" title="For moving a skill to Learning" className="absolute -right-2 -top-3" />
+                )}
               </button>
             ))}
           </div>

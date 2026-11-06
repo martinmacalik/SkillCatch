@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, Plus, Search, Sparkles } from 'lucide-react'
 import { fetchShareableSkills, type ShareableSkill } from '@/lib/chat-queries'
 import { colorForIndex } from '@/pages/skills/types'
+import { RewardHint } from '@/components/rewards/RewardHint'
 
 interface Props {
   myId: string
@@ -109,6 +110,7 @@ function SkillPicker({ myId, onBack, onClose, onPick }: PickerProps) {
           <ChevronLeft className="h-4 w-4" />
         </button>
         <p className="text-sm font-semibold text-gray-900">Share skill progress</p>
+        <RewardHint id="share_skill" className="ml-auto pr-1.5" />
       </div>
 
       <div className="flex items-center gap-2 rounded-xl bg-gray-100 px-3 py-2">

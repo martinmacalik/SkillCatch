@@ -90,6 +90,8 @@ export interface UserCreatedSkill {
   rejection_reason: string | null;
   duplicate_of: string | null;
   parent_name: string | null;
+  parent_is_new: boolean; // a category the user suggested with this skill, decided together with it
+  parent_parent_name: string | null;
   duplicate_of_name: string | null;
   creator_username: string | null;
   similar: SimilarSkill[];

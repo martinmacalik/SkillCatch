@@ -65,9 +65,11 @@ export class CreateSkillFailed extends Error {
 }
 
 // Creates a pending skill and adds it to the caller's profile. Returns its id.
+// With newCategory, parentId is where that new (pending) category goes, null = top level.
 export async function createUserSkill(input: {
   name: string
-  parentId: string
+  parentId: string | null
+  newCategory?: string
   showCreator: boolean
   status: UserSkillStatus
 }): Promise<string> {
@@ -76,6 +78,7 @@ export async function createUserSkill(input: {
     p_parent_id: input.parentId,
     p_show_creator: input.showCreator,
     p_status: input.status,
+    p_new_category: input.newCategory ?? null,
   })
   if (!error) return data as string
 
@@ -89,6 +92,12 @@ export async function createUserSkill(input: {
     throw new CreateSkillFailed({
       kind: 'invalid',
       message: `Name must be ${SKILL_NAME_MIN}–${SKILL_NAME_MAX} characters.`,
+    })
+  }
+  if (msg.includes('invalid_category')) {
+    throw new CreateSkillFailed({
+      kind: 'invalid',
+      message: `Category name must be ${SKILL_NAME_MIN}–${SKILL_NAME_MAX} characters and can't be a skill's name.`,
     })
   }
   if (msg.includes('invalid_parent')) {

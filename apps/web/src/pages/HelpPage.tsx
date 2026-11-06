@@ -259,7 +259,7 @@ export default function HelpPage() {
             <div>
               <p className="mb-1 text-sm font-semibold text-gray-800">How do I earn them?</p>
               <p className="text-sm leading-relaxed text-gray-500">
-                Mostly by helping the app grow: adding learning content, suggesting new skills and improving the skill structure. Long login streaks add a bonus too.
+                Only by helping the app grow: learning content, new skills and skill structure proposals. Coins are paid once an admin or editor approves your contribution.
               </p>
             </div>
 

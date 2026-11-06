@@ -652,7 +652,7 @@ All RPCs run as `SECURITY DEFINER` so they can bypass RLS where needed (except i
 | `can_access_chat_media(p_object_name)` | Storage helper: parses conversation id from the path and checks membership. |
 | `skill_name_key(p_name)` | IMMUTABLE: lowercased, unaccented, whitespace-collapsed name used to compare skills. |
 | `search_skill_nodes(p_query, p_limit?)` | SECURITY INVOKER (RLS applies): substring + trigram search over `skill_name_key`, exact matches first. |
-| `create_user_skill(p_name, p_parent_id, p_show_creator?, p_status?)` | Creates a `pending` leaf under an approved category and adds it to the caller's `user_skills`. Refuses duplicates under the same parent (advisory lock per parent), max 5 pending per user. |
+| `create_user_skill(p_name, p_parent_id, p_show_creator?, p_status?, p_new_category?)` | Creates a `pending` leaf under an approved category and adds it to the caller's `user_skills`. Refuses duplicates under the same parent (advisory lock per parent), max 5 pending skills per user. With `p_new_category`, first creates that category as a `pending` non-leaf under `p_parent_id` (NULL = top level), or reuses one with the same name there. The admin-api approves / rejects such a category together with its skill. |
 | `set_skill_show_creator(p_skill_id, p_show)` | Creator toggles "Created by" on their skill. |
 | `mark_notifications_read()` | Sets `read_at = now()` on the caller's unread notifications. |
 

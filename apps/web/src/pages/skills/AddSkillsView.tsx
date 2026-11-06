@@ -12,9 +12,10 @@ import type { SkillNode, SkillStat } from "./types";
 
 interface AddSkillsViewProps {
   onSkillAdded: () => void;
+  openCreate?: boolean; // arrive with the "Create a new skill" form open (Rewards page)
 }
 
-export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
+export default function AddSkillsView({ onSkillAdded, openCreate = false }: AddSkillsViewProps) {
   const { session } = useAuth();
   const { query, setQuery } = useSearch();
 
@@ -34,7 +35,9 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
   const [loading, setLoading] = useState(true);
   const [pendingNode, setPendingNode] = useState<{ node: SkillNode; index: number } | null>(null);
   // "Can't find it? Create it" form, prefilled from the search / current category
-  const [createDraft, setCreateDraft] = useState<{ name: string; parentId: string | null } | null>(null);
+  const [createDraft, setCreateDraft] = useState<{ name: string; parentId: string | null } | null>(
+    openCreate ? { name: "", parentId: null } : null,
+  );
   const [searchNonce, setSearchNonce] = useState(0); // bump → re-run the search
 
   /* ── data fetching ── */
@@ -242,6 +245,11 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
   }
 
   const allSkillsNodes = currentBranch ? branchChildren : rootNodes;
+  // "Missing a skill here?" belongs where skills live: a category that already has skills,
+  // or an empty one at the bottom of the tree. Not in a branch that only holds sub-categories.
+  const showMissingCard = !!currentBranch && (
+    allSkillsNodes.some((n) => n.is_leaf) || allSkillsNodes.length === 0
+  );
 
   return (
     <>
@@ -446,7 +454,7 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
                       ))}
                   </div>
                 )}
-                {(currentBranch || allSkillsNodes.some((n) => n.is_leaf)) && (
+                {(showMissingCard || allSkillsNodes.some((n) => n.is_leaf)) && (
                   <div className="mt-5 flex flex-wrap gap-4">
                     {allSkillsNodes
                       .filter((n) => n.is_leaf)
@@ -463,7 +471,7 @@ export default function AddSkillsView({ onSkillAdded }: AddSkillsViewProps) {
                           }
                         />
                       ))}
-                    {currentBranch && (
+                    {showMissingCard && currentBranch && (
                       <MissingSkillCard
                         onClick={() => setCreateDraft({ name: "", parentId: currentBranch.id })}
                       />

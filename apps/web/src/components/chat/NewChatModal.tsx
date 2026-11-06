@@ -3,6 +3,7 @@ import { Search, X } from 'lucide-react'
 import { displayName } from '@/lib/chat-queries'
 import { usePeopleSearch } from '@/hooks/usePeopleSearch'
 import { ChatAvatar } from './ChatAvatar'
+import { RewardHint } from '@/components/rewards/RewardHint'
 
 interface Props {
   myId: string
@@ -40,7 +41,10 @@ export function NewChatModal({ myId, onPick, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">New chat</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-gray-900">New chat</h2>
+            <RewardHint id="start_chat" title="For starting a chat with another learner" />
+          </div>
           <button onClick={onClose} className="rounded-full p-1.5 transition hover:bg-gray-100" title="Close">
             <X className="h-5 w-5 text-gray-500" />
           </button>

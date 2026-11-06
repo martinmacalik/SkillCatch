@@ -34,7 +34,7 @@ export function AddToLearnButton({ skillNodeId }: { skillNodeId: string }) {
       className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
         added
           ? 'bg-black text-white hover:bg-gray-800'
-          : 'border border-gray-200 text-black hover:border-black'
+          : 'border border-gray-200 bg-white/90 text-black backdrop-blur-sm hover:border-black hover:bg-white'
       }`}
     >
       {added ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}

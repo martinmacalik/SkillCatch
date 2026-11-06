@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { X, Check, Search, AlertTriangle } from "lucide-react";
+import { X, Check, Search, AlertTriangle, Plus } from "lucide-react";
 import {
   searchSkills,
   fetchCategoryOptions,
@@ -12,6 +12,7 @@ import {
 } from "../../lib/skill-queries";
 import { STATUS_OPTIONS, type Status } from "./skillStatus";
 import type { SkillNode } from "./types";
+import { RewardHint } from "@/components/rewards/RewardHint";
 
 interface CreateSkillModalProps {
   initialName: string;
@@ -37,6 +38,8 @@ export default function CreateSkillModal({
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [parentId, setParentId] = useState<string | null>(initialParentId);
   const [categoryFilter, setCategoryFilter] = useState("");
+  // own category when none fits: typed name first, then where it goes (parentId null = top level)
+  const [newCategory, setNewCategory] = useState<{ name: string; parentId: string | null; placed: boolean } | null>(null);
   const [status, setStatus] = useState<Status>("watchlist");
   const [showCreator, setShowCreator] = useState(false);
 
@@ -71,17 +74,39 @@ export default function CreateSkillModal({
   }, [categories, categoryFilter]);
 
   const selectedCategory = categories.find((c) => c.id === parentId) ?? null;
+  const newCategoryParent = categories.find((c) => c.id === newCategory?.parentId) ?? null;
+  const typedCategory = categoryFilter.trim();
   const trimmed = name.trim();
   const canSubmit =
-    trimmed.length >= SKILL_NAME_MIN && trimmed.length <= SKILL_NAME_MAX && !!parentId && !submitting;
+    trimmed.length >= SKILL_NAME_MIN &&
+    trimmed.length <= SKILL_NAME_MAX &&
+    (newCategory ? newCategory.placed : !!parentId) &&
+    !submitting;
+
+  const pickCategory = (id: string | null) => {
+    if (newCategory) setNewCategory({ ...newCategory, parentId: id, placed: true });
+    else setParentId(id);
+    setCategoryFilter("");
+  };
+
+  const resetCategory = () => {
+    setParentId(null);
+    setNewCategory(null);
+  };
 
   const handleSubmit = async () => {
-    if (!canSubmit || !parentId) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
     setExisting(null);
     try {
-      const id = await createUserSkill({ name: trimmed, parentId, showCreator, status });
+      const id = await createUserSkill({
+        name: trimmed,
+        parentId: newCategory ? newCategory.parentId : parentId,
+        newCategory: newCategory?.name,
+        showCreator,
+        status,
+      });
       setSuccess(true);
       setTimeout(() => onCreated(id), 1400);
     } catch (e) {
@@ -120,9 +145,15 @@ export default function CreateSkillModal({
         </button>
 
         <div className="overflow-y-auto px-6 pb-6 pt-6">
-          <h2 className="text-lg font-semibold text-gray-900">Create a new skill</h2>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+            Create a new skill
+            <RewardHint id="suggest_skill" title="Once an admin approves it" />
+          </h2>
           <p className="mt-0.5 text-sm text-gray-400">
             You'll see it in your profile right away. Others will see it once an admin approves it.
+          </p>
+          <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            A skill is only created if it doesn't exist yet. Rewards are paid for new skills only.
           </p>
 
           {success ? (
@@ -186,12 +217,27 @@ export default function CreateSkillModal({
 
               {/* Category */}
               <label className="mt-5 block text-xs font-medium text-gray-500">Category</label>
-              {selectedCategory ? (
+              {newCategory?.placed ? (
+                <div className="mt-1 flex items-center justify-between rounded-xl border border-gray-900 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-800">
+                  <span className="truncate">
+                    {newCategoryParent && `${newCategoryParent.label} › `}
+                    {newCategory.name}
+                    <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">new</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={resetCategory}
+                    className="ml-2 shrink-0 text-xs font-semibold text-gray-500 hover:text-gray-900"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : selectedCategory && !newCategory ? (
                 <div className="mt-1 flex items-center justify-between rounded-xl border border-gray-900 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-800">
                   <span className="truncate">{selectedCategory.label}</span>
                   <button
                     type="button"
-                    onClick={() => setParentId(null)}
+                    onClick={resetCategory}
                     className="ml-2 shrink-0 text-xs font-semibold text-gray-500 hover:text-gray-900"
                   >
                     Change
@@ -199,16 +245,33 @@ export default function CreateSkillModal({
                 </div>
               ) : (
                 <div className="mt-1 overflow-hidden rounded-xl border border-gray-200">
+                  {newCategory && (
+                    <div className="flex items-center justify-between bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <span>Where does “{newCategory.name}” belong?</span>
+                      <button type="button" onClick={resetCategory} className="font-semibold hover:text-amber-950">
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
                     <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                     <input
                       value={categoryFilter}
                       onChange={(e) => setCategoryFilter(e.target.value)}
-                      placeholder="Search categories…"
+                      placeholder={newCategory ? "Search parent categories…" : "Search categories…"}
                       className="flex-1 text-sm outline-none"
                     />
                   </div>
                   <div className="max-h-40 overflow-y-auto py-1">
+                    {newCategory && !typedCategory && (
+                      <button
+                        type="button"
+                        onClick={() => pickCategory(null)}
+                        className="block w-full px-3 py-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
+                      >
+                        Top level (its own area)
+                      </button>
+                    )}
                     {visibleCategories.length === 0 ? (
                       <p className="px-3 py-2 text-xs text-gray-400">No categories found</p>
                     ) : (
@@ -216,7 +279,7 @@ export default function CreateSkillModal({
                         <button
                           key={c.id}
                           type="button"
-                          onClick={() => setParentId(c.id)}
+                          onClick={() => pickCategory(c.id)}
                           className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50"
                         >
                           {c.label}
@@ -224,7 +287,24 @@ export default function CreateSkillModal({
                       ))
                     )}
                   </div>
+                  {/* none fits → suggest the typed name as a new category */}
+                  {!newCategory && typedCategory.length >= SKILL_NAME_MIN && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewCategory({ name: typedCategory.slice(0, SKILL_NAME_MAX), parentId: null, placed: false });
+                        setCategoryFilter("");
+                      }}
+                      className="flex w-full items-center gap-2 border-t border-gray-100 px-3 py-2.5 text-left text-sm font-medium text-purple-700 hover:bg-purple-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create category “{typedCategory.slice(0, SKILL_NAME_MAX)}”
+                    </button>
+                  )}
                 </div>
+              )}
+              {newCategory && (
+                <p className="mt-1.5 text-xs text-gray-400">The new category is reviewed together with your skill.</p>
               )}
 
               {/* Status in the creator's profile */}

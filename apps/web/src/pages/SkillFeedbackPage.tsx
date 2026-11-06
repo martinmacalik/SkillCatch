@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useSubmitRestructureRequest } from '@/hooks/useSubmitRestructureRequest'
 import { RestructureForm } from '@/components/skill-feedback/RestructureForm'
 import { RestructureSuccess } from '@/components/skill-feedback/RestructureSuccess'
+import { RewardHint } from '@/components/rewards/RewardHint'
 
 export default function SkillFeedbackPage() {
   const navigate = useNavigate()
@@ -29,7 +30,10 @@ export default function SkillFeedbackPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Skill Structure</h1>
+          <h1 className="flex items-center gap-3 text-3xl font-bold text-gray-900">
+            Skill Structure
+            <RewardHint id="improve_structure" title="For every proposal an admin approves" />
+          </h1>
           <p className="mt-1 text-base text-gray-500">Suggest improvements to the skill tree.</p>
         </div>
       </div>
