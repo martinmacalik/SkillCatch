@@ -6,7 +6,7 @@ import { BLOCK_INFO } from '@/components/learn/blockInfo'
 // `live: false` → the rule is planned, the backend doesn't award it yet.
 
 export type RewardId =
-  | 'add_skill' | 'start_learning' | 'level_up' | 'finish_checklist' | 'review_flashcards'
+  | 'add_skill' | 'start_learning' | 'level_up' | 'finish_checklist' | 'review_flashcards' | 'track_time'
   | 'daily_login' | 'streak_7' | 'streak_30'
   | 'start_chat' | 'share_skill' | 'complete_profile'
   | 'add_content' | 'suggest_skill' | 'improve_structure'
@@ -37,6 +37,7 @@ export const REWARD_GROUPS: RewardGroup[] = [
       { id: 'start_learning', label: 'Start learning a skill', description: 'Move a skill to the Learning stage.', xp: 20, live: false, action: { label: 'My skills', to: '/dashboard/skills' } },
       { id: 'level_up', label: 'Level up a skill', description: 'Pass a level-up check on a skill.', xp: 50, live: false, action: { label: 'Learn', to: '/dashboard/learn' } },
       { id: 'finish_checklist', label: 'Finish a checklist', description: 'Tick off every item of a checklist block.', xp: 15, live: false, action: { label: 'Learn', to: '/dashboard/learn' } },
+      { id: 'track_time', label: 'Track learning time', description: 'Per minute in the Time Tracker (from 1 minute on), +10 bonus for a session of 25 minutes or more. Max 4 hours per session.', xp: 1, live: true, action: { label: 'Dashboard', to: '/dashboard' } },
       { id: 'review_flashcards', label: 'Review flashcards', description: 'Go through a whole flashcard deck.', xp: 10, live: false, action: { label: 'Learn', to: '/dashboard/learn' } },
     ],
   },

@@ -9,6 +9,8 @@ import EditSkillModal from './skills/EditSkillModal'
 import { useConversations } from '@/hooks/useConversations'
 import { conversationName, formatChatTime } from '@/lib/chat-queries'
 import { ConversationAvatar } from '@/components/chat/ChatAvatar'
+import { TimeTrackerCard } from '@/components/time-tracker/TimeTrackerCard'
+import { ActivityHeatmap } from '@/components/time-tracker/ActivityHeatmap'
 
 /* ── helpers ── */
 
@@ -199,16 +201,8 @@ export default function DashboardPage() {
 
         {/* ── Rows 2 & 3 Combined – Custom Asymmetric Grid ── */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:flex-1 2xl:min-h-155 2xl:grid-cols-6 2xl:gap-5 2xl:grid-rows-[4fr_1fr_1fr_4fr]">
-          {/* Learning Progress: tablet col1 row2 | desktop rows 1-2, cols 1-3 */}
-          <div className="flex min-h-48 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-2 2xl:col-span-3 2xl:col-start-1 2xl:row-start-1 2xl:row-end-3 2xl:min-h-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-semibold text-gray-900">Learning Progress</h3>
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-400">Coming soon</span>
-            </div>
-            <div className="flex flex-1 items-center justify-center">
-              <p className="text-sm text-gray-400">No data yet</p>
-            </div>
-          </div>
+          {/* Learning Progress heatmap: mobile/tablet full width row 2 | desktop rows 1-2, cols 1-3 */}
+          <ActivityHeatmap className="sm:col-span-2 sm:col-start-1 sm:row-start-2 2xl:col-span-3 2xl:col-start-1 2xl:row-start-1 2xl:row-end-3" />
 
           {/* Reminders: tablet col1 row3 | desktop rows 1-2, cols 4-5 */}
           <div className="flex min-h-36 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-3 2xl:col-span-2 2xl:col-start-4 2xl:row-start-1 2xl:row-end-3 2xl:min-h-0">
@@ -218,8 +212,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Skills Learning: tablet col2 row2 | desktop rows 1-3, col 6 */}
-          <div className="flex min-h-36 flex-col rounded-2xl bg-white p-6 sm:col-start-2 sm:row-start-2 2xl:col-span-1 2xl:col-start-6 2xl:row-start-1 2xl:row-end-4 2xl:min-h-0">
+          {/* Skills Learning: tablet row4 full width | desktop rows 1-2, col 6 */}
+          <div className="flex min-h-36 flex-col rounded-2xl bg-white p-6 sm:col-span-2 sm:col-start-1 sm:row-start-4 2xl:col-span-1 2xl:col-start-6 2xl:row-start-1 2xl:row-end-3 2xl:min-h-0">
             <h3 className="mb-3 text-base font-semibold text-gray-900">Skills Learning</h3>
             {learningSkills.length === 0 ? (
               <div className="flex flex-1 items-center justify-center">
@@ -328,10 +322,8 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Time Tracker: tablet col2 row1 | desktop row 4, col 6 */}
-          <div className="flex min-h-24 flex-col justify-end rounded-2xl bg-linear-to-br from-indigo-900 to-fuchsia-700 p-6 sm:col-start-2 sm:row-start-1 2xl:col-span-1 2xl:col-start-6 2xl:row-start-4 2xl:row-end-5 2xl:min-h-0">
-            <p className="text-2xl font-bold text-white">Time Tracker</p>
-          </div>
+          {/* Time Tracker: tablet col2 row1 | desktop rows 3-4, col 6 */}
+          <TimeTrackerCard className="sm:col-start-2 sm:row-start-1 2xl:col-span-1 2xl:col-start-6 2xl:row-start-3 2xl:row-end-5" />
         </div>
       </div>
     </>

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
 import { useSearch } from '@/contexts/SearchContext'
 import { NotificationsBell } from '@/components/notifications/NotificationsBell'
+import { onAppEvent } from '@/lib/app-events'
 
 const searchPlaceholders: Record<string, string> = {
   '/dashboard': 'Search',
@@ -33,12 +34,17 @@ export function TopBar() {
 
   useEffect(() => {
     if (!session?.user) return
-    supabase
-      .from('profiles')
-      .select('first_name, last_name, skillcoin_balance, xp, avatar_url')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data }) => { if (data) setProfile(data) })
+    const userId = session.user.id
+    const load = () =>
+      supabase
+        .from('profiles')
+        .select('first_name, last_name, skillcoin_balance, xp, avatar_url')
+        .eq('id', userId)
+        .single()
+        .then(({ data }) => { if (data) setProfile(data) })
+    load()
+    // e.g. after a Time Tracker session paid out XP
+    return onAppEvent('profile:refresh', load)
   }, [session])
 
   const displayName = profile
