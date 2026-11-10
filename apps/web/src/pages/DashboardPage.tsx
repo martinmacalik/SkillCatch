@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { StreakFlame } from '@/components/StreakFlame'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, Plus } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
@@ -37,6 +38,7 @@ export default function DashboardPage() {
   const [totalSkills, setTotalSkills] = useState(0)
   const [learningCount, setLearningCount] = useState(0)
   const [dayStreak, setDayStreak] = useState(0)
+  const [streakLoaded, setStreakLoaded] = useState(false)
   const [pinnedSkills, setPinnedSkills] = useState<SkillNode[]>([])
   const [learningSkills, setLearningSkills] = useState<SkillNode[]>([])
   const [editingNode, setEditingNode] = useState<{ node: SkillNode; index: number } | null>(null)
@@ -115,6 +117,7 @@ export default function DashboardPage() {
       if (loginDays?.length) {
         setDayStreak(calcStreak(loginDays.map((d: { login_date: string }) => d.login_date)))
       }
+      setStreakLoaded(true)
     }
 
     fetchDashboard()
@@ -188,7 +191,7 @@ export default function DashboardPage() {
             <p className="hidden text-xs text-fuchsia-400 sm:block sm:text-sm">Skills tracked</p>
           </div>
 
-          <StatCard shortLabel="Streak" title="Day Streak" value={String(dayStreak)} badgeLabel="Consecutive login days" onArrowClick={() => navigate('/dashboard/learn')} />
+          <StatCard shortLabel="Streak" title="Day Streak" value={String(dayStreak)} badgeLabel="Consecutive login days" onArrowClick={() => navigate('/dashboard/learn')} icon={<StreakFlame key={streakLoaded ? 'loaded' : 'initial'} days={dayStreak} size={48} className="h-8 w-8 sm:h-10 sm:w-10 lg:h-14 lg:w-14" />} />
           <StatCard shortLabel="Learning" title="Skills Learning" value={String(learningCount)} badgeLabel="Currently in progress" onArrowClick={() => navigate('/dashboard/learn')} />
           <StatCard
             shortLabel="Chats"
@@ -338,12 +341,14 @@ function StatCard({
   value,
   badgeLabel,
   onArrowClick,
+  icon,
 }: {
   shortLabel: string
   title: string
   value: string
   badgeLabel: string
   onArrowClick?: () => void
+  icon?: ReactNode
 }) {
   return (
     <div className="flex flex-col justify-between rounded-2xl bg-white p-3 sm:p-4 lg:p-6">
@@ -360,7 +365,10 @@ function StatCard({
           <ArrowUpRight className="h-4 w-4 text-black lg:h-5 lg:w-5" />
         </button>
       </div>
-      <p className="my-1 text-3xl font-medium text-gray-900 sm:my-2 sm:text-4xl lg:text-6xl">{value}</p>
+      <div className="my-1 flex items-center gap-1 sm:my-2 sm:gap-2">
+        <p className="text-3xl font-medium text-gray-900 sm:text-4xl lg:text-6xl">{value}</p>
+        {icon}
+      </div>
       <p className="hidden text-xs text-fuchsia-700 sm:block sm:text-sm">{badgeLabel}</p>
     </div>
   )
