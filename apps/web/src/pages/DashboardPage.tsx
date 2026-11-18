@@ -10,24 +10,10 @@ import EditSkillModal from './skills/EditSkillModal'
 import { useConversations } from '@/hooks/useConversations'
 import { conversationName, formatChatTime } from '@/lib/chat-queries'
 import { ConversationAvatar } from '@/components/chat/ChatAvatar'
-import { TimeTrackerCard } from '@/components/time-tracker/TimeTrackerCard'
 import { ActivityHeatmap } from '@/components/time-tracker/ActivityHeatmap'
-
-/* ── helpers ── */
-
-
-function calcStreak(dates: string[]): number {
-  if (!dates.length) return 0
-  let streak = 1
-  for (let i = 1; i < dates.length; i++) {
-    const curr = new Date(dates[i - 1])
-    const prev = new Date(dates[i])
-    const diff = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24))
-    if (diff === 1) streak++
-    else break
-  }
-  return streak
-}
+import { LearningTracker } from '@/components/dashboard/LearningTracker'
+import { useTodayActivity } from '@/hooks/useActivityTracker'
+import { fetchStreakDays, streakEndingYesterday, STREAK_GOAL_SECONDS } from '@/lib/activity-queries'
 
 /* ── page ── */
 
@@ -37,8 +23,9 @@ export default function DashboardPage() {
 
   const [totalSkills, setTotalSkills] = useState(0)
   const [learningCount, setLearningCount] = useState(0)
-  const [dayStreak, setDayStreak] = useState(0)
+  const [streakBefore, setStreakBefore] = useState(0)
   const [streakLoaded, setStreakLoaded] = useState(false)
+  const todayActivity = useTodayActivity()
   const [pinnedSkills, setPinnedSkills] = useState<SkillNode[]>([])
   const [learningSkills, setLearningSkills] = useState<SkillNode[]>([])
   const [editingNode, setEditingNode] = useState<{ node: SkillNode; index: number } | null>(null)
@@ -101,27 +88,22 @@ export default function DashboardPage() {
         )
       }
 
-      // 3. Login streak — upsert today, then calculate
-      const today = new Date().toISOString().slice(0, 10)
-      await supabase
-        .from('user_login_days')
-        .upsert({ user_id: userId, login_date: today }, { onConflict: 'user_id,login_date' })
-        .then(() => {}) // ignore errors if table doesn't exist yet
-
-      const { data: loginDays } = await supabase
-        .from('user_login_days')
-        .select('login_date')
-        .eq('user_id', userId)
-        .order('login_date', { ascending: false })
-
-      if (loginDays?.length) {
-        setDayStreak(calcStreak(loginDays.map((d: { login_date: string }) => d.login_date)))
-      }
-      setStreakLoaded(true)
     }
 
     fetchDashboard()
   }, [session])
+
+  // Streak = consecutive days with 10+ min in the app. Past days come from the
+  // server, today is counted live (it joins the streak once it reaches 10 min).
+  useEffect(() => {
+    if (!session?.user) return
+    fetchStreakDays(todayActivity.day)
+      .then(days => setStreakBefore(streakEndingYesterday(days, todayActivity.day)))
+      .catch(() => {})
+      .finally(() => setStreakLoaded(true))
+  }, [session, todayActivity.day])
+
+  const dayStreak = streakBefore + (todayActivity.appSeconds >= STREAK_GOAL_SECONDS ? 1 : 0)
 
   return (
     <>
@@ -191,7 +173,7 @@ export default function DashboardPage() {
             <p className="hidden text-xs text-fuchsia-400 sm:block sm:text-sm">Skills tracked</p>
           </div>
 
-          <StatCard shortLabel="Streak" title="Day Streak" value={String(dayStreak)} badgeLabel="Consecutive login days" onArrowClick={() => navigate('/dashboard/learn')} icon={<StreakFlame key={streakLoaded ? 'loaded' : 'initial'} days={dayStreak} size={48} className="h-8 w-8 sm:h-10 sm:w-10 lg:h-14 lg:w-14" />} />
+          <StatCard shortLabel="Streak" title="Day Streak" value={String(dayStreak)} badgeLabel="Days with 10+ min" onArrowClick={() => navigate('/dashboard/learn')} icon={<StreakFlame key={streakLoaded ? 'loaded' : 'initial'} days={dayStreak} size={48} className="h-8 w-8 sm:h-10 sm:w-10 lg:h-14 lg:w-14" />} />
           <StatCard shortLabel="Learning" title="Skills Learning" value={String(learningCount)} badgeLabel="Currently in progress" onArrowClick={() => navigate('/dashboard/learn')} />
           <StatCard
             shortLabel="Chats"
@@ -325,8 +307,10 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Time Tracker: tablet col2 row1 | desktop rows 3-4, col 6 */}
-          <TimeTrackerCard className="sm:col-start-2 sm:row-start-1 2xl:col-span-1 2xl:col-start-6 2xl:row-start-3 2xl:row-end-5" />
+          {/* Learning Tracker (automatic): tablet col2 row1 | desktop rows 3-4, col 6 */}
+          <div className="min-h-48 sm:col-start-2 sm:row-start-1 2xl:col-span-1 2xl:col-start-6 2xl:row-start-3 2xl:row-end-5 2xl:min-h-0">
+            <LearningTracker />
+          </div>
         </div>
       </div>
     </>

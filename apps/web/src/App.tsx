@@ -18,8 +18,11 @@ import SkillFeedbackPage from './pages/SkillFeedbackPage'
 import ProfileBuilderPage from './pages/ProfileBuilderPage'
 import PublicProfilePage from './pages/PublicProfilePage'
 import RewardsPage from './pages/RewardsPage'
+import { useActivityTracker } from './hooks/useActivityTracker'
 
 export default function App() {
+  useActivityTracker()
+
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
