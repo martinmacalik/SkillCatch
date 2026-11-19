@@ -13,6 +13,7 @@ import ChatsPage from './pages/ChatsPage'
 import SkillsPage from './pages/SkillsPage'
 import LearnPage from './pages/LearnPage'
 import DiscoverPage from './pages/DiscoverPage'
+import TeachPage from './pages/TeachPage'
 import HelpPage from './pages/HelpPage'
 import SkillFeedbackPage from './pages/SkillFeedbackPage'
 import ProfileBuilderPage from './pages/ProfileBuilderPage'
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="learn" element={<LearnPage />} />
         <Route path="learn/:skillId" element={<LearnPage />} />
         <Route path="discover" element={<DiscoverPage />} />
+        <Route path="teach" element={<TeachPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="help" element={<HelpPage />} />
         <Route path="skill-feedback" element={<SkillFeedbackPage />} />

@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:schools:cz": "node scripts/schools/build-cz.ts",
+    "build:universities": "node scripts/schools/build-universities.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

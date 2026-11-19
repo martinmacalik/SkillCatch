@@ -6,6 +6,7 @@ import {
   Puzzle,
   BookOpen,
   Compass,
+  GraduationCap,
   Settings,
   HelpCircle,
   Logout2,
@@ -22,6 +23,7 @@ const menuItems: { icon: IconComponent; label: string; to: string }[] = [
   { icon: Puzzle,   label: 'Skills',    to: '/dashboard/skills' },
   { icon: BookOpen, label: 'Learn',     to: '/dashboard/learn' },
   { icon: Compass,  label: 'Discover',  to: '/dashboard/discover' },
+  { icon: GraduationCap, label: 'Teach', to: '/dashboard/teach' },
 ]
 
 const generalItems: { icon: IconComponent; label: string; to: string }[] = [

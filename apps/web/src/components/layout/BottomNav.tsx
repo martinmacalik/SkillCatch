@@ -5,6 +5,7 @@ import {
   Puzzle,
   BookOpen,
   Compass,
+  GraduationCap,
   Logout2,
   type IconComponent,
 } from 'reicon-react'
@@ -16,6 +17,7 @@ const navItems: { icon: IconComponent; to: string; end?: boolean }[] = [
   { icon: Puzzle,   to: '/dashboard/skills' },
   { icon: BookOpen, to: '/dashboard/learn' },
   { icon: Compass,  to: '/dashboard/discover' },
+  { icon: GraduationCap, to: '/dashboard/teach' },
 ]
 
 export function BottomNav() {
