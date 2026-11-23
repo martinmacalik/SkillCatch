@@ -277,7 +277,7 @@ function DocumentMethod({ kind, onPick }: { kind: VerificationKind; onPick: (fil
   const copy = DOCUMENT_COPY[kind]
   return (
     <div className="mt-4">
-      <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 px-4 py-4 text-sm text-gray-500 transition-colors hover:border-purple-400">
+      <label className="relative flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 px-4 py-4 text-sm text-gray-500 transition-colors hover:border-purple-400">
         <Upload className="h-5 w-5 shrink-0 text-purple-700" />
         <span>
           <span className="block font-semibold text-gray-700">{copy.title}</span>

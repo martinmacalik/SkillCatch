@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, UserPlus, XCircle } from 'lucide-react'
 import { Bell } from 'reicon-react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -52,6 +52,11 @@ export function NotificationsBell() {
     navigate('/dashboard/skills', name ? { state: { addQuery: name } } : undefined)
   }
 
+  const go = (path: string) => {
+    setOpen(false)
+    navigate(path)
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -76,7 +81,7 @@ export function NotificationsBell() {
               <p className="px-4 py-8 text-center text-sm text-gray-400">Nothing here yet.</p>
             ) : (
               items.map(n => (
-                <NotificationRow key={n.id} n={n} fresh={freshIds.has(n.id)} onGoToSkill={goToSkill} />
+                <NotificationRow key={n.id} n={n} fresh={freshIds.has(n.id)} onGoToSkill={goToSkill} onGo={go} />
               ))
             )}
           </div>
@@ -90,44 +95,109 @@ function NotificationRow({
   n,
   fresh,
   onGoToSkill,
+  onGo,
 }: {
   n: AppNotification
   fresh: boolean
   onGoToSkill: (name?: string | null) => void
+  onGo: (path: string) => void
 }) {
+  const ok = n.type === 'skill_approved' || n.type === 'license_approved' || n.type === 'student_accepted'
+  const neutral = n.type === 'student_request'
   return (
     <div className={`flex gap-3 border-b border-gray-50 px-4 py-3 last:border-b-0 ${fresh ? 'bg-purple-50/60' : ''}`}>
-      {n.type === 'skill_approved' ? (
+      {neutral ? (
+        <UserPlus className="mt-0.5 h-5 w-5 shrink-0 text-purple-600" />
+      ) : ok ? (
         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
       ) : (
         <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
       )}
       <div className="min-w-0 flex-1">
-        {n.type === 'skill_approved' ? (
-          <>
-            <p className="text-sm text-gray-900">
-              Your skill <span className="font-semibold">{n.data.skill_name}</span> was approved.
-            </p>
-            <p className="mt-0.5 text-xs text-gray-500">Everyone can find and add it now.</p>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-gray-900">
-              Your skill <span className="font-semibold">{n.data.skill_name}</span> was rejected.
-            </p>
-            <p className="mt-0.5 text-xs text-gray-500">Reason: {n.data.reason}</p>
-            {n.data.duplicate_of_name && (
-              <button
-                onClick={() => onGoToSkill(n.data.duplicate_of_name)}
-                className="mt-1.5 text-xs font-semibold text-purple-700 hover:underline"
-              >
-                Add “{n.data.duplicate_of_name}” instead →
-              </button>
-            )}
-          </>
-        )}
+        <NotificationBody n={n} onGoToSkill={onGoToSkill} onGo={onGo} />
         <p className="mt-1 text-[11px] text-gray-400">{timeAgo(n.created_at)}</p>
       </div>
     </div>
   )
+}
+
+const actionLink = 'mt-1.5 text-xs font-semibold text-purple-700 hover:underline'
+
+function NotificationBody({
+  n,
+  onGoToSkill,
+  onGo,
+}: {
+  n: AppNotification
+  onGoToSkill: (name?: string | null) => void
+  onGo: (path: string) => void
+}) {
+  switch (n.type) {
+    case 'skill_approved':
+      return (
+        <>
+          <p className="text-sm text-gray-900">
+            Your skill <span className="font-semibold">{n.data.skill_name}</span> was approved.
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">Everyone can find and add it now.</p>
+        </>
+      )
+    case 'skill_rejected':
+      return (
+        <>
+          <p className="text-sm text-gray-900">
+            Your skill <span className="font-semibold">{n.data.skill_name}</span> was rejected.
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">Reason: {n.data.reason}</p>
+          {n.data.duplicate_of_name && (
+            <button onClick={() => onGoToSkill(n.data.duplicate_of_name)} className={actionLink}>
+              Add “{n.data.duplicate_of_name}” instead →
+            </button>
+          )}
+        </>
+      )
+    case 'license_approved':
+      return (
+        <>
+          <p className="text-sm text-gray-900">
+            {n.data.kind === 'edit' ? 'Your license changes were approved.' : 'Your teaching license was approved.'}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">Students can now find you on the pages of your skills.</p>
+          <button onClick={() => onGo('/dashboard/teach')} className={actionLink}>
+            Open Teach →
+          </button>
+        </>
+      )
+    case 'license_rejected':
+      return (
+        <>
+          <p className="text-sm text-gray-900">
+            {n.data.kind === 'edit' ? 'Your license changes were not approved.' : 'Your teaching license was not approved.'}
+          </p>
+          {n.data.reason && <p className="mt-0.5 text-xs text-gray-500">Reason: {n.data.reason}</p>}
+          <button onClick={() => onGo('/dashboard/teach')} className={actionLink}>
+            Fix and resubmit →
+          </button>
+        </>
+      )
+    case 'student_request':
+      return (
+        <>
+          <p className="text-sm text-gray-900">
+            <span className="font-semibold">{n.data.student_name}</span> wants to learn{' '}
+            <span className="font-semibold">{n.data.skill_name}</span> with you.
+          </p>
+          <button onClick={() => onGo('/dashboard/teach')} className={actionLink}>
+            Review request →
+          </button>
+        </>
+      )
+    case 'student_accepted':
+      return (
+        <p className="text-sm text-gray-900">
+          <span className="font-semibold">{n.data.teacher_name}</span> accepted you as a student of{' '}
+          <span className="font-semibold">{n.data.skill_name}</span>.
+        </p>
+      )
+  }
 }

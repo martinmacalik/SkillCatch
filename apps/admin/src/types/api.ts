@@ -103,3 +103,81 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
 }
+
+/* ── teaching licenses (admin-api /licenses) ── */
+
+export type LicenseReviewStatus = 'pending' | 'approved' | 'rejected';
+export type LicenseKind = 'new' | 'edit';
+
+/** Same shape as LicensePayload in apps/web/src/types/teaching.ts */
+export interface LicensePayload {
+  titleBefore: string;
+  titleAfter: string;
+  role: string | null;
+  countryCode: string;
+  institutionType: string | null;
+  institutionId: string | null;
+  institutionName: string;
+  institutionDomains: string[] | null;
+  bio: string;
+  photoPath: string | null;
+  theme: string;
+  skills: {
+    skillNodeId: string;
+    skillName: string;
+    level: string;
+    evidence: {
+      kind: 'image' | 'video' | 'pdf' | 'link';
+      type: string;
+      url: string | null;
+      path: string | null;
+      fileName: string | null;
+      description: string;
+      date: string | null;
+    }[];
+  }[];
+  verification: {
+    kind: string | null;
+    method: string | null;
+    status: string;
+    email: string | null;
+    documentPath: string | null;
+    documentFileName: string | null;
+    submittedAt: string | null;
+    verifiedAt: string | null;
+  };
+}
+
+export interface LicenseUser {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
+export interface LicenseSubmissionSummary {
+  id: string;
+  kind: LicenseKind;
+  status: LicenseReviewStatus;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  user: LicenseUser;
+  institution_name: string;
+  skill_names: string[];
+  verification_status: string;
+}
+
+export interface LicenseSubmissionDetail {
+  id: string;
+  kind: LicenseKind;
+  status: LicenseReviewStatus | 'draft';
+  payload: LicensePayload;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  user: LicenseUser;
+  /** The approved license the edit would replace (null for a new license). */
+  live: { payload: LicensePayload; approved_at: string } | null;
+  /** storage path → URL (signed for private files, public for the photo) */
+  file_urls: Record<string, string>;
+}

@@ -1,7 +1,7 @@
 /*
  * Teaching license – frontend types.
  *
- * Shaped so they map 1:1 onto future tables (camelCase → snake_case):
+ * Map 1:1 onto the tables (camelCase → snake_case), migration 20261123001:
  *   TeacherLicense  → teacher_licenses
  *   LicenseSkill    → license_skills    (license_id → teacher_licenses.id)
  *   LicenseEvidence → license_evidence  (license_skill_id → license_skills.id)
@@ -14,7 +14,7 @@
  */
 
 /** Review state of a license and of each skill on it. */
-export type LicenseStatus = 'draft' | 'pending' | 'verified' | 'rejected'
+export type LicenseStatus = 'draft' | 'pending' | 'approved' | 'rejected'
 
 /** How well the teacher claims to master the skill. */
 export type TeachingLevel = 'intermediate' | 'advanced' | 'expert'
@@ -33,23 +33,25 @@ export interface LicenseEvidence {
   licenseSkillId: string
   kind: EvidenceKind
   type: EvidenceType
-  /** For files: a preview object URL now, a Storage URL later. For links: the link itself. */
+  /** Links: the link. Files: something to show it with (blob: preview or a signed Storage URL). */
   url: string
+  /** Files once uploaded: path in bucket license-files. Null for links and unsaved files. */
+  path: string | null
   /** Original file name (null for links). */
   fileName: string | null
   description: string
   /** ISO date `YYYY-MM-DD`, null when not filled in. */
   date: string | null
   createdAt: string
-  /** client-only: the picked file, uploaded to Storage when the backend exists. */
+  /** client-only: the picked file, uploaded on save. */
   file: File | null
 }
 
 export interface LicenseSkill {
   id: string
   licenseId: string
-  /** Later a FK to skill_nodes.id; null while skills are mocked. */
-  skillNodeId: string | null
+  /** FK skill_nodes.id */
+  skillNodeId: string
   skillName: string
   level: TeachingLevel
   status: LicenseStatus
@@ -78,8 +80,10 @@ export interface EducatorVerification {
   status: VerificationStatus
   /** School e-mail the code was sent to. */
   email: string | null
-  /** Uploaded proof (staff ID, contract, student ID, confirmation of studies…). Preview URL now, Storage path later. */
+  /** Uploaded proof (staff ID, contract, student ID…): something to show it with. */
   documentUrl: string | null
+  /** Path in bucket license-files once uploaded. */
+  documentPath: string | null
   documentFileName: string | null
   /** client-only: the picked document file. */
   documentFile: File | null
@@ -89,7 +93,7 @@ export interface EducatorVerification {
 
 export interface TeacherLicense {
   id: string
-  /** Later a FK to profiles.id. */
+  /** FK profiles.id */
   userId: string | null
   /** Read from the account, not edited in the form. */
   displayName: string
@@ -109,7 +113,9 @@ export interface TeacherLicense {
 
   bio: string
   photoUrl: string | null
-  /** client-only: the picked photo, uploaded to Storage later. */
+  /** Path in bucket license-photos once uploaded. */
+  photoPath: string | null
+  /** client-only: the picked photo, uploaded on save. */
   photoFile: File | null
   theme: LicenseTheme
   status: LicenseStatus
@@ -136,7 +142,7 @@ export const EVIDENCE_TYPE_LABELS: Record<EvidenceType, string> = {
 export const STATUS_LABELS: Record<LicenseStatus, string> = {
   draft: 'Draft',
   pending: 'Pending',
-  verified: 'Verified',
+  approved: 'Approved',
   rejected: 'Rejected',
 }
 
@@ -164,3 +170,54 @@ export const VERIFIED_LABELS: Record<VerificationKind, string> = {
 
 export const BIO_MAX_LENGTH = 200
 export const ACADEMIC_TITLE_MAX_LENGTH = 30
+
+/* ── database shapes ── */
+
+/** One evidence item inside a submission payload. */
+export interface PayloadEvidence {
+  kind: EvidenceKind
+  type: EvidenceType
+  url: string | null
+  path: string | null
+  fileName: string | null
+  description: string
+  date: string | null
+}
+
+/**
+ * teacher_license_submissions.payload: a full snapshot of the form.
+ * approve_license_submission() copies it into the live tables.
+ */
+export interface LicensePayload {
+  titleBefore: string
+  titleAfter: string
+  role: TeacherRole | null
+  countryCode: string
+  institutionType: InstitutionType | null
+  institutionId: string | null
+  institutionName: string
+  institutionDomains: string[] | null
+  bio: string
+  photoPath: string | null
+  theme: LicenseTheme
+  skills: {
+    skillNodeId: string
+    /** For display only (admin, drafts); the database uses skillNodeId. */
+    skillName: string
+    level: TeachingLevel
+    evidence: PayloadEvidence[]
+  }[]
+  verification: {
+    kind: VerificationKind | null
+    method: VerificationMethod | null
+    status: VerificationStatus
+    email: string | null
+    documentPath: string | null
+    documentFileName: string | null
+    submittedAt: string | null
+    verifiedAt: string | null
+  }
+}
+
+export type SubmissionStatus = 'draft' | 'pending' | 'approved' | 'rejected'
+export type SubmissionKind = 'new' | 'edit'

@@ -203,14 +203,14 @@ function AddEvidenceForm({ licenseSkillId, createPreviewUrl, onAdd, onCancel }: 
         setError('Pick a photo, video or PDF.')
         return
       }
-      onAdd({ ...base, kind, url: createPreviewUrl(file), fileName: file.name, file })
+      onAdd({ ...base, kind, url: createPreviewUrl(file), path: null, fileName: file.name, file })
     } else {
       const url = normalizeLink(link)
       if (!url) {
         setError('Enter a valid link (http or https).')
         return
       }
-      onAdd({ ...base, kind: 'link', url, fileName: null, file: null })
+      onAdd({ ...base, kind: 'link', url, path: null, fileName: null, file: null })
     }
   }
 
@@ -244,7 +244,7 @@ function AddEvidenceForm({ licenseSkillId, createPreviewUrl, onAdd, onCancel }: 
       </div>
 
       {source === 'file' ? (
-        <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 bg-white px-3 py-3 text-sm text-gray-500 transition-colors hover:border-purple-400">
+        <label className="relative flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 bg-white px-3 py-3 text-sm text-gray-500 transition-colors hover:border-purple-400">
           <Paperclip className="h-4 w-4 shrink-0 text-purple-700" />
           <span className="min-w-0 truncate">{file ? file.name : 'Choose photo, video or PDF'}</span>
           <input

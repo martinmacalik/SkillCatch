@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { Camera, Plus } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
@@ -28,6 +28,9 @@ import {
   verificationKindForRole,
 } from './teach-utils'
 
+/** Allowed by the license-photos bucket (migration 20261123001). */
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
 const INSTITUTION_TYPE_OPTIONS = (Object.keys(INSTITUTION_TYPE_LABELS) as InstitutionType[]).map((value) => ({
   value,
   label: INSTITUTION_TYPE_LABELS[value],
@@ -37,12 +40,17 @@ const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as TeacherRole[]).map((value) => 
 interface LicenseFormProps {
   value: TeacherLicense
   onChange: (next: TeacherLicense) => void
-  availableSkills: string[]
+  /** The user's own skills (user_skills), the only ones they can put on a license. */
+  availableSkills: { id: string; name: string }[]
   createPreviewUrl: (file: File) => string
   releasePreviewUrl: (url: string | null) => void
   onSaveDraft: () => void
   onSubmit: () => void
   onCancel: () => void
+  /** Saving / uploading: buttons are disabled. */
+  busy?: boolean
+  /** Last save error, shown above the buttons. */
+  error?: string | null
 }
 
 /**
@@ -58,18 +66,31 @@ export function LicenseForm({
   onSaveDraft,
   onSubmit,
   onCancel,
+  busy = false,
+  error = null,
 }: LicenseFormProps) {
   const ids = useId()
   const set = <K extends keyof TeacherLicense>(key: K, v: TeacherLicense[K]) => onChange({ ...value, [key]: v })
 
-  const addedNames = new Set(value.skills.map((s) => s.skillName))
-  const unusedSkills = availableSkills.filter((name) => !addedNames.has(name))
+  const addedIds = new Set(value.skills.map((s) => s.skillNodeId))
+  const unusedSkills = availableSkills.filter((s) => !addedIds.has(s.id))
   const hasSkills = value.skills.length > 0
   const submittable = canSubmit(value)
 
   /* photo */
+  const [photoError, setPhotoError] = useState<string | null>(null)
   const pickPhoto = (file: File | undefined) => {
-    if (!file || !file.type.startsWith('image/')) return
+    if (!file) return
+    // same list as the license-photos bucket, so it fails here and not on save
+    if (!PHOTO_TYPES.includes(file.type)) {
+      setPhotoError(
+        file.type === 'image/gif'
+          ? 'GIFs can’t be used as a license photo. Please pick a JPG, PNG or WebP image.'
+          : 'This file type isn’t supported. Please pick a JPG, PNG or WebP image.',
+      )
+      return
+    }
+    setPhotoError(null)
     releasePreviewUrl(value.photoUrl)
     onChange({ ...value, photoFile: file, photoUrl: createPreviewUrl(file) })
   }
@@ -107,12 +128,12 @@ export function LicenseForm({
     value.institutionId ? { id: null, name: '', domains: null } : { id: null, name: value.institutionName, domains: null }
 
   /* skills */
-  const addSkill = (skillName: string) => {
+  const addSkill = (picked: { id: string; name: string }) => {
     const skill: LicenseSkill = {
       id: newId(),
       licenseId: value.id,
-      skillNodeId: null,
-      skillName,
+      skillNodeId: picked.id,
+      skillName: picked.name,
       level: 'intermediate',
       status: 'draft',
       evidence: [],
@@ -139,11 +160,11 @@ export function LicenseForm({
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <label className="cursor-pointer rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200">
+            <label className="relative cursor-pointer rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-200">
               {value.photoUrl ? 'Change photo' : 'Upload photo'}
               <input
                 type="file"
-                accept="image/*"
+                accept={PHOTO_TYPES.join(',')}
                 className="sr-only"
                 onChange={(e) => {
                   pickPhoto(e.target.files?.[0])
@@ -162,6 +183,7 @@ export function LicenseForm({
             )}
           </div>
         </div>
+        {photoError && <p className="mt-2 text-sm font-medium text-red-600">{photoError}</p>}
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <Field label="Title before name" htmlFor={`${ids}-tb`}>
@@ -261,18 +283,23 @@ export function LicenseForm({
       <Section step={3} title="Skills you teach" hint="Pick at least one skill, set your level and back it with proof.">
         {unusedSkills.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {unusedSkills.map((name) => (
+            {unusedSkills.map((skill) => (
               <button
-                key={name}
+                key={skill.id}
                 type="button"
-                onClick={() => addSkill(name)}
+                onClick={() => addSkill(skill)}
                 className="flex cursor-pointer items-center gap-1 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-gray-600 ring-1 ring-gray-200 transition-colors hover:text-purple-700 hover:ring-purple-300"
               >
                 <Plus className="h-3.5 w-3.5" />
-                {name}
+                {skill.name}
               </button>
             ))}
           </div>
+        )}
+        {availableSkills.length === 0 && (
+          <p className="text-sm text-gray-500">
+            Add skills to your profile first (Skills page), then pick the ones you can teach here.
+          </p>
         )}
 
         {hasSkills ? (
@@ -340,6 +367,11 @@ export function LicenseForm({
       </Section>
 
       {/* ── actions ── */}
+      {error && (
+        <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          Couldn&apos;t save: {error}
+        </p>
+      )}
       <div className="flex flex-col-reverse gap-3 rounded-2xl bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
@@ -352,7 +384,7 @@ export function LicenseForm({
           <button
             type="button"
             onClick={onSaveDraft}
-            disabled={!hasSkills}
+            disabled={!hasSkills || busy}
             className="cursor-pointer rounded-xl px-6 py-3 text-sm font-semibold text-purple-700 ring-1 ring-purple-200 transition-colors hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
           >
             Save draft
@@ -365,7 +397,7 @@ export function LicenseForm({
             <button
               type="button"
               onClick={onSubmit}
-              disabled={!submittable}
+              disabled={!submittable || busy}
               className="w-full cursor-pointer rounded-xl bg-purple-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:bg-purple-300"
             >
               Submit for review
@@ -374,6 +406,7 @@ export function LicenseForm({
         </div>
       </div>
       {!hasSkills && <p className="-mt-2 text-center text-xs text-gray-400 sm:text-right">Add at least one skill to save.</p>}
+      {busy && <p className="-mt-2 text-center text-xs text-gray-500 sm:text-right">Uploading files and saving…</p>}
     </div>
   )
 }

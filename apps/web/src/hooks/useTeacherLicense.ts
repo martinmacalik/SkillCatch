@@ -1,23 +1,55 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import type { LicenseStatus, TeacherLicense } from '@/types/teaching'
-import { collectObjectUrls, nowIso } from '@/components/teach/teach-utils'
+import type { TeacherLicense } from '@/types/teaching'
+import {
+  fetchMyLicenseState,
+  fetchMySkillOptions,
+  saveSubmission,
+  withdrawSubmission,
+  type MyLicenseState,
+} from '@/lib/license-queries'
+
+const EMPTY_STATE: MyLicenseState = { live: null, open: null, rejected: null }
+
+function messageOf(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') return err.message
+  return 'Something went wrong.'
+}
 
 /**
- * Local-only store for the teaching license (no backend yet).
+ * The teacher's license as stored in Supabase + the user's skills for the form.
  *
- * Besides the saved license it owns every `blob:` preview URL created for
- * picked files, so it can free them (URL.revokeObjectURL) once nothing shows
- * them anymore. Swapping this hook for a Supabase-backed one later keeps the
- * page and form untouched.
+ * Also owns the blob: preview URLs of files picked in the form. Saved files
+ * come back from the server as Storage URLs, so after a save (or a cancel)
+ * every preview can be revoked.
  */
-export function useTeacherLicense() {
-  const [license, setLicense] = useState<TeacherLicense | null>(null)
+export function useTeacherLicense(userId: string | undefined, displayName: string) {
+  const [state, setState] = useState<MyLicenseState>(EMPTY_STATE)
+  const [skillOptions, setSkillOptions] = useState<{ id: string; name: string }[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  /** Object URLs created and not yet revoked. */
   const liveUrls = useRef(new Set<string>())
-  /** Mirror of `license` readable inside callbacks without re-creating them. */
-  const savedRef = useRef<TeacherLicense | null>(null)
+
+  const load = useCallback(async () => {
+    if (!userId) return
+    try {
+      const [next, skills] = await Promise.all([fetchMyLicenseState(userId, displayName), fetchMySkillOptions(userId)])
+      setState(next)
+      setSkillOptions(skills)
+      setError(null)
+    } catch (err) {
+      setError(messageOf(err))
+    } finally {
+      setLoading(false)
+    }
+  }, [userId, displayName])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  /* ── blob: previews ── */
 
   const createPreviewUrl = useCallback((file: File) => {
     const url = URL.createObjectURL(file)
@@ -25,58 +57,51 @@ export function useTeacherLicense() {
     return url
   }, [])
 
-  /** Revokes every live URL that `keep` does not reference. */
-  const revokeAllExcept = useCallback((keep: TeacherLicense | null) => {
-    const used = collectObjectUrls(keep)
-    for (const url of liveUrls.current) {
-      if (used.has(url)) continue
-      URL.revokeObjectURL(url)
-      liveUrls.current.delete(url)
-    }
-  }, [])
-
-  /**
-   * The form dropped a preview (removed proof, replaced photo). Free it now,
-   * unless the saved license still shows it (the user may still cancel the edit).
-   */
+  /** A preview left the form (removed proof, replaced photo). */
   const releasePreviewUrl = useCallback((url: string | null) => {
     if (!url || !liveUrls.current.has(url)) return
-    if (collectObjectUrls(savedRef.current).has(url)) return
     URL.revokeObjectURL(url)
     liveUrls.current.delete(url)
   }, [])
 
-  const commit = useCallback(
-    (draft: TeacherLicense, status: LicenseStatus) => {
-      const next: TeacherLicense = {
-        ...draft,
-        status,
-        updatedAt: nowIso(),
-        skills: draft.skills.map((s) => ({ ...s, status })),
-      }
-      savedRef.current = next
-      setLicense(next)
-      revokeAllExcept(next)
-    },
-    [revokeAllExcept],
-  )
-
-  const saveDraft = useCallback((draft: TeacherLicense) => commit(draft, 'draft'), [commit])
-
-  /** Later: insert rows + upload files, then status = 'pending' on the server. */
-  const submitForReview = useCallback((draft: TeacherLicense) => commit(draft, 'pending'), [commit])
-
-  /** Edit cancelled: free previews created only for the thrown-away draft. */
-  const discardDraft = useCallback(() => revokeAllExcept(savedRef.current), [revokeAllExcept])
-
-  // Leaving the page drops the in-memory license, so free every preview.
-  useEffect(() => {
-    const urls = liveUrls.current
-    return () => {
-      for (const url of urls) URL.revokeObjectURL(url)
-      urls.clear()
-    }
+  const revokeAll = useCallback(() => {
+    for (const url of liveUrls.current) URL.revokeObjectURL(url)
+    liveUrls.current.clear()
   }, [])
 
-  return { license, createPreviewUrl, releasePreviewUrl, saveDraft, submitForReview, discardDraft }
+  // leaving the page: free every preview
+  useEffect(() => revokeAll, [revokeAll])
+
+  /* ── actions ── */
+
+  /** Uploads files, stores the draft (submit = false) or sends it for review. */
+  const save = useCallback(
+    async (draft: TeacherLicense, submit: boolean) => {
+      if (!userId) throw new Error('Not signed in.')
+      await saveSubmission({ userId, draft, submit, openId: state.open?.id ?? null })
+      await load()
+      revokeAll()
+    },
+    [userId, state.open?.id, load, revokeAll],
+  )
+
+  /** Deletes the open draft / pulls a change back from review. */
+  const withdraw = useCallback(async () => {
+    if (!state.open) return
+    await withdrawSubmission(state.open.id)
+    await load()
+  }, [state.open, load])
+
+  return {
+    ...state,
+    skillOptions,
+    loading,
+    error,
+    reload: load,
+    save,
+    withdraw,
+    discardPreviews: revokeAll,
+    createPreviewUrl,
+    releasePreviewUrl,
+  }
 }

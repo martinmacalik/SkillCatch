@@ -7,6 +7,8 @@ import type {
   UserCreatedSkill,
   SimilarSkill,
   PaginatedResponse,
+  LicenseSubmissionSummary,
+  LicenseSubmissionDetail,
 } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_ADMIN_API_URL as string;
@@ -107,6 +109,20 @@ export const api = {
     apiFetch<UserCreatedSkill>(`/skills/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason, duplicate_of }),
+    }),
+
+  getLicenses: (status: string) =>
+    apiFetch<{ data: LicenseSubmissionSummary[] }>(`/licenses?${new URLSearchParams({ status })}`),
+
+  getLicense: (id: string) => apiFetch<LicenseSubmissionDetail>(`/licenses/${id}`),
+
+  approveLicense: (id: string) =>
+    apiFetch<{ id: string; status: string }>(`/licenses/${id}/approve`, { method: 'POST' }),
+
+  rejectLicense: (id: string, reason: string) =>
+    apiFetch<{ id: string; status: string }>(`/licenses/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
     }),
 
   getAuditLog: (params?: { entity_type?: string; page?: number }) => {

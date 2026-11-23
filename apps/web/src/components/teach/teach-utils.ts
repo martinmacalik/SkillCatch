@@ -60,6 +60,7 @@ export const EMPTY_VERIFICATION: EducatorVerification = {
   status: 'none',
   email: null,
   documentUrl: null,
+  documentPath: null,
   documentFileName: null,
   documentFile: null,
   submittedAt: null,
@@ -87,6 +88,7 @@ export function emptyLicense(displayName: string, userId: string | null, country
     institutionDomains: null,
     bio: '',
     photoUrl: null,
+    photoPath: null,
     photoFile: null,
     theme: 'violet',
     status: 'draft',
@@ -171,6 +173,6 @@ export function formatDate(iso: string | null): string {
 export const STATUS_STYLES: Record<LicenseStatus, string> = {
   draft: 'bg-gray-100 text-gray-600',
   pending: 'bg-amber-100 text-amber-700',
-  verified: 'bg-emerald-100 text-emerald-700',
+  approved: 'bg-emerald-100 text-emerald-700',
   rejected: 'bg-red-100 text-red-700',
 }
