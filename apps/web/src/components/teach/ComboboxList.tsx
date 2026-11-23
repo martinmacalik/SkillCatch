@@ -18,17 +18,22 @@ interface ComboboxListProps {
   onPick: (index: number) => void
   /** Shown above the options (loading, "no results"…). */
   status?: ReactNode
+  /** Extra classes for the panel, e.g. a fixed width wider than the input. */
+  className?: string
 }
 
 /** The dropdown panel shared by all comboboxes on the Teach page. */
-export function ComboboxList({ listId, optionId, options, active, onHover, onPick, status }: ComboboxListProps) {
+export function ComboboxList({ listId, optionId, options, active, onHover, onPick, status, className }: ComboboxListProps) {
   // null until the first event: the very first move only records the position
   const lastPointer = useRef<{ x: number; y: number } | null>(null)
   return (
     <ul
       id={listId}
       role="listbox"
-      className="absolute top-full right-0 left-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl bg-white p-1 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.18)] ring-1 ring-gray-200"
+      className={cn(
+        'absolute top-full right-0 left-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-xl bg-white p-1 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.18)] ring-1 ring-gray-200',
+        className,
+      )}
       // <html> sets a dark scrollbar-color that every element inherits (and that
       // wins over ::-webkit-scrollbar in Chrome), so override it here
       style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(156, 163, 175, 0.5) transparent' }}
@@ -52,7 +57,12 @@ export function ComboboxList({ listId, optionId, options, active, onHover, onPic
             if (!last || (last.x === e.clientX && last.y === e.clientY)) return
             if (i !== active) onHover(i)
           }}
-          onClick={() => onPick(i)}
+          onClick={() => {
+            onPick(i)
+            // a mouse pick is done: leave the field, like a native select.
+            // (Enter keeps focus so keyboard users can carry on with Tab.)
+            if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+          }}
           className={cn(
             'cursor-pointer rounded-lg px-3 py-2 text-sm text-gray-800',
             i === active && 'bg-purple-50 text-purple-900',

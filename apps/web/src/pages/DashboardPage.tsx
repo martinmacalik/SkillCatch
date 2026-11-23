@@ -10,7 +10,7 @@ import EditSkillModal from './skills/EditSkillModal'
 import { useConversations } from '@/hooks/useConversations'
 import { conversationName, formatChatTime } from '@/lib/chat-queries'
 import { ConversationAvatar } from '@/components/chat/ChatAvatar'
-import { ActivityHeatmap } from '@/components/time-tracker/ActivityHeatmap'
+import { LearningProgressCard } from '@/components/time-tracker/LearningProgressCard'
 import { LearningTracker } from '@/components/dashboard/LearningTracker'
 import { useTodayActivity } from '@/hooks/useActivityTracker'
 import { fetchStreakDays, streakEndingYesterday, STREAK_GOAL_SECONDS } from '@/lib/activity-queries'
@@ -186,8 +186,8 @@ export default function DashboardPage() {
 
         {/* ── Rows 2 & 3 Combined – Custom Asymmetric Grid ── */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:flex-1 2xl:min-h-155 2xl:grid-cols-6 2xl:gap-5 2xl:grid-rows-[4fr_1fr_1fr_4fr]">
-          {/* Learning Progress heatmap: mobile/tablet full width row 2 | desktop rows 1-2, cols 1-3 */}
-          <ActivityHeatmap className="sm:col-span-2 sm:col-start-1 sm:row-start-2 2xl:col-span-3 2xl:col-start-1 2xl:row-start-1 2xl:row-end-3" />
+          {/* Learning Progress (week bars): mobile/tablet full width row 2 | desktop rows 1-2, cols 1-3 */}
+          <LearningProgressCard className="sm:col-span-2 sm:col-start-1 sm:row-start-2 2xl:col-span-3 2xl:col-start-1 2xl:row-start-1 2xl:row-end-3" />
 
           {/* Reminders: tablet col1 row3 | desktop rows 1-2, cols 4-5 */}
           <div className="flex min-h-36 flex-col rounded-2xl bg-white p-6 sm:col-start-1 sm:row-start-3 2xl:col-span-2 2xl:col-start-4 2xl:row-start-1 2xl:row-end-3 2xl:min-h-0">
