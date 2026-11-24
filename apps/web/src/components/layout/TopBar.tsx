@@ -1,29 +1,33 @@
 import { useEffect, useState } from 'react'
 import { Flash, Pen, Search, Settings } from 'reicon-react'
+import { GlobalSearch } from '@/components/search/GlobalSearch'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
-import { useSearch } from '@/contexts/SearchContext'
 import { NotificationsBell } from '@/components/notifications/NotificationsBell'
 import { onAppEvent } from '@/lib/app-events'
 
-const searchPlaceholders: Record<string, string> = {
-  '/dashboard': 'Search',
-  '/dashboard/chats': 'Search Chat',
-  '/dashboard/skills': 'Search Skill',
-  '/dashboard/learn': 'Search Course',
-  '/dashboard/discover': 'Discover',
-}
+// mobile: the page name next to the search icon
+const PAGE_TITLES: [string, string][] = [
+  ['/dashboard/chats', 'Chats'],
+  ['/dashboard/skills', 'Skills'],
+  ['/dashboard/learn', 'Learn'],
+  ['/dashboard/discover', 'Discover'],
+  ['/dashboard/teach', 'Teach'],
+  ['/dashboard/rewards', 'Rewards'],
+  ['/dashboard/settings', 'Settings'],
+  ['/dashboard/help', 'Help'],
+  ['/dashboard/profile-builder', 'Profile'],
+  ['/dashboard/skill-feedback', 'Skill feedback'],
+]
 
 export function TopBar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const isChats = location.pathname.startsWith('/dashboard/chats')
-  const placeholder = searchPlaceholders[isChats ? '/dashboard/chats' : location.pathname] || 'Search'
+  const pageTitle = PAGE_TITLES.find(([path]) => location.pathname.startsWith(path))?.[1] ?? 'Dashboard'
   const { session } = useAuth()
-  const { query, setQuery } = useSearch()
-  // pages that read the shared search query
-  const isSearchable = location.pathname === '/dashboard/skills' || isChats
+  // mobile: the search opens full screen
+  const [searchOverlay, setSearchOverlay] = useState(false)
   const [profile, setProfile] = useState<{
     first_name: string | null
     last_name: string | null
@@ -55,23 +59,25 @@ export function TopBar() {
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between rounded-2xl bg-gray-100 px-4 sm:h-16 sm:px-6 2xl:h-21">
-      {/* Search — hidden on mobile, visible sm+ */}
-      <div className="relative hidden w-full max-w-xs sm:block sm:max-w-sm lg:max-w-md">
-        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder={placeholder}
-          value={isSearchable ? query : undefined}
-          onChange={isSearchable ? (e) => setQuery(e.target.value) : undefined}
-          onKeyDown={undefined}
-          className="w-full rounded-4xl bg-white py-3 pl-11 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/10"
-        />
-      </div>
+      {/* Search everything (⌘K) — the field from sm+, a full-screen search on mobile */}
+      <GlobalSearch
+        className="hidden w-full max-w-xs sm:block sm:max-w-sm lg:max-w-md"
+        onRequestOverlay={() => setSearchOverlay(true)}
+      />
 
-      {/* Mobile: page title */}
-      <p className="text-base font-semibold text-gray-900 sm:hidden">
-        {placeholder}
-      </p>
+      {/* Mobile: page title + search icon */}
+      <div className="flex items-center gap-1 sm:hidden">
+        <p className="text-base font-semibold text-gray-900">{pageTitle}</p>
+        <button
+          type="button"
+          onClick={() => setSearchOverlay(true)}
+          aria-label="Search"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-200"
+        >
+          <Search className="h-5 w-5" />
+        </button>
+      </div>
+      {searchOverlay && <GlobalSearch variant="overlay" onClose={() => setSearchOverlay(false)} className="sm:hidden" />}
 
       {/* Profile section */}
       <div className="flex items-center gap-2 sm:gap-3">

@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Clock } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthProvider'
+import { supabase } from '@/lib/supabaseClient'
+import { onAppEvent } from '@/lib/app-events'
 import { useTeacherLicense } from '@/hooks/useTeacherLicense'
 import type { TeacherLicense } from '@/types/teaching'
 import { EmptyLicenseState } from '@/components/teach/EmptyLicenseState'
@@ -11,15 +13,40 @@ import { TeacherDashboard } from '@/components/teach/dashboard/TeacherDashboard'
 import { emptyLicense } from '@/components/teach/teach-utils'
 import { defaultCountryCode } from '@/data/countries'
 
-/** Name shown on the card, taken from the session (no extra request). */
-function useDisplayName(): string {
+/**
+ * Name on the card = the name used everywhere else in the app (TopBar, chats):
+ * profiles first + last name, then username, then the sign-in metadata.
+ * null until the profile is loaded, so the license isn't fetched twice.
+ */
+function useDisplayName(): string | null {
   const { session } = useAuth()
-  const meta = session?.user.user_metadata as Record<string, unknown> | undefined
-  for (const key of ['full_name', 'name', 'username']) {
-    const v = meta?.[key]
-    if (typeof v === 'string' && v.trim()) return v.trim()
-  }
-  return session?.user.email?.split('@')[0] ?? 'Your name'
+  const userId = session?.user.id
+  const [name, setName] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    const meta = session?.user.user_metadata as Record<string, unknown> | undefined
+    const fallback =
+      ['full_name', 'name', 'username'].map((k) => meta?.[k]).find((v): v is string => typeof v === 'string' && !!v.trim())?.trim() ??
+      session?.user.email?.split('@')[0] ??
+      'Your name'
+
+    const load = () =>
+      supabase
+        .from('profiles')
+        .select('first_name, last_name, username')
+        .eq('id', userId)
+        .maybeSingle()
+        .then(({ data }) => {
+          const full = [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim()
+          setName(full || data?.username || fallback)
+        })
+    void load()
+    // name changed in Settings
+    return onAppEvent('profile:refresh', () => void load())
+  }, [userId, session])
+
+  return name
 }
 
 function messageOf(err: unknown): string {
@@ -30,8 +57,10 @@ function messageOf(err: unknown): string {
 export default function TeachPage() {
   const { session } = useAuth()
   const userId = session?.user.id
-  const displayName = useDisplayName()
-  const lic = useTeacherLicense(userId, displayName)
+  const profileName = useDisplayName()
+  const displayName = profileName ?? ''
+  // wait for the name: it's baked into the license objects
+  const lic = useTeacherLicense(profileName === null ? undefined : userId, displayName)
 
   // Working copy while editing; null = not editing. Nothing in the database
   // changes until Save draft / Submit, so Cancel just drops it.

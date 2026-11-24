@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthProvider'
 import { useSearch } from '@/contexts/SearchContext'
+import { usePageSearchScope } from '@/hooks/usePageSearchScope'
 import { useConversations } from '@/hooks/useConversations'
 import {
   acceptRequest,
@@ -34,6 +35,9 @@ export default function ChatsPage() {
   const location = useLocation()
   // Rewards page "New chat" button → arrive with the modal open
   const [newChatOpen, setNewChatOpen] = useState(() => (location.state as { newChat?: boolean } | null)?.newChat === true)
+
+  // the TopBar search filters this list; the global panel only adds "Also found"
+  usePageSearchScope('chats')
 
   // the TopBar search query is shared with Skills → start and leave clean
   useEffect(() => {

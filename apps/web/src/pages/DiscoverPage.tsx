@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../contexts/AuthProvider";
+import { useSearch } from "../contexts/SearchContext";
+import { usePageSearchScope } from "../hooks/usePageSearchScope";
 
 interface UserProfile {
   id: string;
@@ -18,8 +19,16 @@ export default function DiscoverPage() {
   const navigate = useNavigate();
 
   const [people, setPeople] = useState<UserProfile[]>([]);
-  const [peopleQuery, setPeopleQuery] = useState("");
   const [peopleLoading, setPeopleLoading] = useState(true);
+  // the TopBar search filters this list (no separate field here)
+  const { query: peopleQuery, setQuery } = useSearch();
+  usePageSearchScope("people");
+
+  // the query is shared with other pages → start and leave clean
+  useEffect(() => {
+    setQuery("");
+    return () => setQuery("");
+  }, [setQuery]);
   const [firstName, setFirstName] = useState("");
 
   useEffect(() => {
@@ -35,20 +44,29 @@ export default function DiscoverPage() {
   }, [session]);
 
   useEffect(() => {
-    setPeopleLoading(true);
-    const q = peopleQuery.trim();
-    let query = supabase
-      .from("profiles")
-      .select("id, first_name, last_name, username, avatar_url, bio")
-      .order("first_name")
-      .limit(40);
-    if (q) {
-      query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,username.ilike.%${q}%`);
-    }
-    query.then(({ data }) => {
-      setPeople(data ?? []);
-      setPeopleLoading(false);
-    });
+    let cancelled = false;
+    // small debounce: the query changes on every keystroke in the TopBar
+    const t = setTimeout(() => {
+      // strip characters that would break the PostgREST or() filter
+      const q = peopleQuery.trim().replace(/[,()%*]/g, " ").trim();
+      let query = supabase
+        .from("profiles")
+        .select("id, first_name, last_name, username, avatar_url, bio")
+        .order("first_name")
+        .limit(40);
+      if (q) {
+        query = query.or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,username.ilike.%${q}%`);
+      }
+      query.then(({ data }) => {
+        if (cancelled) return;
+        setPeople(data ?? []);
+        setPeopleLoading(false);
+      });
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [peopleQuery]);
 
   return (
@@ -57,17 +75,6 @@ export default function DiscoverPage() {
       <div>
         <p className="text-sm text-gray-400">Hey there, {firstName || "explorer"}!</p>
         <h1 className="mt-1 text-3xl font-bold text-gray-900">Discover people</h1>
-      </div>
-
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          value={peopleQuery}
-          onChange={(e) => setPeopleQuery(e.target.value)}
-          placeholder="Search by name or username"
-          className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
-        />
       </div>
 
       {/* People grid */}
@@ -112,7 +119,7 @@ export default function DiscoverPage() {
           })}
           {people.length === 0 && (
             <p className="col-span-full py-12 text-center text-sm text-gray-400">
-              {peopleQuery ? "No users found." : "No profiles yet."}
+              {peopleQuery.trim() ? `No one matches “${peopleQuery.trim()}”.` : "No profiles yet."}
             </p>
           )}
         </div>

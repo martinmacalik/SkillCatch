@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { addSkillToProfile, searchSkills } from "../../lib/skill-queries";
 import { useAuth } from "../../contexts/AuthProvider";
 import { useSearch } from "../../contexts/SearchContext";
+import { usePageSearchScope } from "@/hooks/usePageSearchScope";
 import { ScrollRow, LeafCard, BranchCard, MissingSkillCard } from "./cards";
 import AddSkillModal, { type AttributeValue } from "./AddSkillModal";
 import CreateSkillModal from "./CreateSkillModal";
@@ -13,11 +14,14 @@ import type { SkillNode, SkillStat } from "./types";
 interface AddSkillsViewProps {
   onSkillAdded: () => void;
   openCreate?: boolean; // arrive with the "Create a new skill" form open (Rewards page)
+  createName?: string; // …prefilled with this name (global search "Create skill …")
 }
 
-export default function AddSkillsView({ onSkillAdded, openCreate = false }: AddSkillsViewProps) {
+export default function AddSkillsView({ onSkillAdded, openCreate = false, createName = "" }: AddSkillsViewProps) {
   const { session } = useAuth();
   const { query, setQuery } = useSearch();
+  // the TopBar search filters this list; the global panel only adds "Also found"
+  usePageSearchScope("new_skills");
 
   const [searchResults, setSearchResults] = useState<SkillNode[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -36,7 +40,7 @@ export default function AddSkillsView({ onSkillAdded, openCreate = false }: AddS
   const [pendingNode, setPendingNode] = useState<{ node: SkillNode; index: number } | null>(null);
   // "Can't find it? Create it" form, prefilled from the search / current category
   const [createDraft, setCreateDraft] = useState<{ name: string; parentId: string | null } | null>(
-    openCreate ? { name: "", parentId: null } : null,
+    openCreate ? { name: createName, parentId: null } : null,
   );
   const [searchNonce, setSearchNonce] = useState(0); // bump → re-run the search
 

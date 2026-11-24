@@ -103,6 +103,15 @@
   }
 }
 
+/* global search: the section you jumped to lights up for a moment */
+@keyframes search-flash {
+  0%, 35% { box-shadow: 0 0 0 3px rgb(168 85 247 / 0.55); }
+  100% { box-shadow: 0 0 0 3px rgb(168 85 247 / 0); }
+}
+.search-flash {
+  animation: search-flash 1.8s ease-out;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

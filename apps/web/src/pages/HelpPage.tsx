@@ -3,6 +3,7 @@ import { CheckCircle, HelpCircle, BookOpen, GitBranch, ArrowRight, Coins } from 
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthProvider'
+import { useSearchFocus } from '../hooks/useSearchFocus'
 
 /* ─── Contact / Support form ────────────────────────────────────────── */
 
@@ -115,7 +116,7 @@ function SupportForm() {
 function SkillFeedbackLink() {
   const navigate = useNavigate()
   return (
-    <div className="rounded-2xl bg-white p-6">
+    <div id="help-structure" className="rounded-2xl bg-white p-6">
       <div className="mb-5 flex items-center gap-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50">
           <GitBranch className="h-5 w-5 text-indigo-500" />
@@ -172,6 +173,8 @@ function SkillFeedbackLink() {
 
 export default function HelpPage() {
   const navigate = useNavigate()
+  // from the global search: scroll to the topic and flash it
+  useSearchFocus()
   return (
     <div className="flex flex-col gap-5">
       {/* Page header */}
@@ -181,7 +184,7 @@ export default function HelpPage() {
       </div>
 
       {/* ── Row 1: Support form (full width) ── */}
-      <div className="rounded-2xl bg-white p-6">
+      <div id="help-contact" className="rounded-2xl bg-white p-6">
         <div className="mb-5 flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50">
             <HelpCircle className="h-5 w-5 text-indigo-500" />
@@ -198,7 +201,7 @@ export default function HelpPage() {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
 
         {/* About SkillCatch */}
-        <div className="rounded-2xl bg-white p-6">
+        <div id="help-about" className="rounded-2xl bg-white p-6">
           <div className="mb-5 flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-fuchsia-50">
               <BookOpen className="h-5 w-5 text-fuchsia-500" />
@@ -237,7 +240,7 @@ export default function HelpPage() {
         </div>
 
         {/* Skillcoins */}
-        <div className="rounded-2xl bg-white p-6">
+        <div id="help-coins" className="rounded-2xl bg-white p-6">
           <div className="mb-5 flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50">
               <Coins className="h-5 w-5 text-amber-500" />

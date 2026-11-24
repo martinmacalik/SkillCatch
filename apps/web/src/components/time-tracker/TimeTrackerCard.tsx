@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Pause, Play, Square } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthProvider'
-import { emitAppEvent } from '@/lib/app-events'
+import { emitAppEvent, onAppEvent } from '@/lib/app-events'
 import {
   elapsedSeconds,
   errorMessage,
@@ -49,6 +49,20 @@ export function TimeTrackerCard({ className = '' }: { className?: string }) {
       .finally(() => !cancelled && setLoading(false))
     return () => { cancelled = true }
   }, [userId])
+
+  // a session started from the global search ("Track time on …")
+  useEffect(
+    () =>
+      onAppEvent('timer:started', () => {
+        timerActive()
+          .then(running => {
+            setActive(running)
+            if (running) setSkillId(running.skill_node_id)
+          })
+          .catch(() => {})
+      }),
+    [],
+  )
 
   // re-render every second while the clock runs
   const running = !!active && !active.paused_at
