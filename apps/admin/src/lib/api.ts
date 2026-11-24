@@ -9,6 +9,7 @@ import type {
   PaginatedResponse,
   LicenseSubmissionSummary,
   LicenseSubmissionDetail,
+  RejectedLicenseSkill,
 } from '../types/api';
 
 const BASE_URL = import.meta.env.VITE_ADMIN_API_URL as string;
@@ -116,8 +117,12 @@ export const api = {
 
   getLicense: (id: string) => apiFetch<LicenseSubmissionDetail>(`/licenses/${id}`),
 
-  approveLicense: (id: string) =>
-    apiFetch<{ id: string; status: string }>(`/licenses/${id}/approve`, { method: 'POST' }),
+  /** rejected = skills left off the license; every other skill is approved. */
+  approveLicense: (id: string, rejected: RejectedLicenseSkill[] = []) =>
+    apiFetch<{ id: string; status: string }>(`/licenses/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ rejected_skills: rejected }),
+    }),
 
   rejectLicense: (id: string, reason: string) =>
     apiFetch<{ id: string; status: string }>(`/licenses/${id}/reject`, {

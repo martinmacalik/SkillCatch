@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { X, Pencil, Trash2 } from "lucide-react";
+import { X, Pencil, Trash2, ArrowRight } from "lucide-react";
+import { BookOpen } from "reicon-react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { setSkillShowCreator } from "../../lib/skill-queries";
 import { colorForIndex } from "./types";
@@ -38,6 +40,7 @@ export default function EditSkillModal({
   onCancel,
   onDelete,
 }: EditSkillModalProps) {
+  const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("view");
   const [defs, setDefs] = useState<SkillAttributeDef[]>([]);
   const [values, setValues] = useState<Record<string, string | string[]>>({});
@@ -380,6 +383,27 @@ export default function EditSkillModal({
                 </button>
               </div>
             </div>
+          )}
+
+          {/* Learning page link: brand gradient so it doesn't read as one of the status/edit buttons */}
+          {mode === "view" && (
+            <button
+              type="button"
+              onClick={() => {
+                onCancel();
+                navigate(`/dashboard/learn/${node.id}`);
+              }}
+              className="group mt-6 flex w-full cursor-pointer items-center gap-3 rounded-2xl bg-linear-to-br from-indigo-900 to-fuchsia-700 px-4 py-3 text-left text-white shadow-md shadow-fuchsia-900/20 transition hover:shadow-lg hover:shadow-fuchsia-900/30"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                <BookOpen weight="Filled" className="h-5 w-5 text-white" />
+              </span>
+              <span className="flex-1">
+                <span className="block text-sm font-semibold">Open learning page</span>
+                <span className="block text-xs text-white/70">Lessons, checklist and progress</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
+            </button>
           )}
         </div>
       </div>

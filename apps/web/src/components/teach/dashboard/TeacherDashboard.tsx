@@ -3,27 +3,40 @@ import { Pencil } from 'lucide-react'
 import { useTeacherStudents } from '@/hooks/useTeacherStudents'
 import { isActiveNow } from '@/lib/teacher-students-queries'
 import type { OpenSubmission, RejectedSubmission } from '@/lib/license-queries'
-import { LEVEL_LABELS, type TeacherLicense } from '@/types/teaching'
+import type { TeacherLicense } from '@/types/teaching'
 import { LicenseCard } from '../LicenseCard'
 import { StatusBadge } from '../StatusBadge'
+import { LicenseSkillsPanel } from './LicenseSkillsPanel'
 import { LicenseStatusBanner } from './LicenseStatusBanner'
 import { MaterialsSection } from './MaterialsSection'
 import { StudentsSection } from './StudentsSection'
 
 interface TeacherDashboardProps {
+  userId: string
   live: TeacherLicense | null
   open: OpenSubmission | null
   rejected: RejectedSubmission | null
   onEdit: () => void
   onSubmitDraft: () => Promise<void>
   onWithdraw: () => Promise<void>
+  /** Reload after a proof of an approved skill changed. */
+  onProofsChanged: () => Promise<void>
 }
 
 /**
  * The Teach page once a license exists (approved or waiting):
  *   status banner · your license (small, with Edit) · stats · students · materials
  */
-export function TeacherDashboard({ live, open, rejected, onEdit, onSubmitDraft, onWithdraw }: TeacherDashboardProps) {
+export function TeacherDashboard({
+  userId,
+  live,
+  open,
+  rejected,
+  onEdit,
+  onSubmitDraft,
+  onWithdraw,
+  onProofsChanged,
+}: TeacherDashboardProps) {
   // students can only come with an approved license
   const { requests, students, loading, error, now, setStatus } = useTeacherStudents(!!live)
   const activeNow = students.filter((s) => isActiveNow(s.last_active_at, now)).length
@@ -44,8 +57,9 @@ export function TeacherDashboard({ live, open, rejected, onEdit, onSubmitDraft, 
       />
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] 2xl:grid-cols-[400px_minmax(0,1fr)]">
-        {/* ── left: the license ── */}
-        <section className="flex flex-col gap-4 rounded-2xl bg-white p-5 lg:sticky lg:top-0">
+        {/* ── left: the license + its skills & proofs ── */}
+        <div className="flex min-w-0 flex-col gap-5">
+        <section className="flex flex-col gap-4 rounded-2xl bg-white p-5">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-gray-900">Your license</h3>
             <StatusBadge status={shown.status} />
@@ -62,17 +76,10 @@ export function TeacherDashboard({ live, open, rejected, onEdit, onSubmitDraft, 
           {live && (
             <p className="-mt-1 text-center text-xs text-gray-400">Changes go to review. Students see this version until then.</p>
           )}
-          <ul className="divide-y divide-gray-100 border-t border-gray-100">
-            {shown.skills.map((skill) => (
-              <li key={skill.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                <span className="truncate font-medium text-gray-900">{skill.skillName}</span>
-                <span className="shrink-0 text-xs text-gray-500">
-                  {LEVEL_LABELS[skill.level]} · {skill.evidence.length} {skill.evidence.length === 1 ? 'proof' : 'proofs'}
-                </span>
-              </li>
-            ))}
-          </ul>
         </section>
+
+        <LicenseSkillsPanel userId={userId} live={live} open={open} onEdit={onEdit} onChanged={onProofsChanged} />
+        </div>
 
         {/* ── right: students + materials ── */}
         <div className="flex min-w-0 flex-col gap-5">

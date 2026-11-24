@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Clock } from 'lucide-react'
 
 import { useAuth } from '@/contexts/AuthProvider'
@@ -43,10 +43,32 @@ export default function TeachPage() {
   // start from the approved license, else from scratch
   const startEditing = () => {
     setSaveError(null)
-    setDraft(
-      lic.open?.license ?? lic.rejected?.license ?? lic.live ?? emptyLicense(displayName, userId ?? null, defaultCountryCode()),
-    )
+    const base =
+      lic.open?.license ?? lic.rejected?.license ?? lic.live ?? emptyLicense(displayName, userId ?? null, defaultCountryCode())
+    // approved skills: proofs are managed under the license, so take the current ones;
+    // skills left out by the admin are being fixed: show them in the preview again
+    const liveById = new Map((lic.live?.skills ?? []).map((s) => [s.skillNodeId, s]))
+    setDraft({
+      ...base,
+      skills: base.skills.map((s) => {
+        const live = liveById.get(s.skillNodeId)
+        if (live?.status === 'approved') return { ...s, evidence: live.evidence }
+        return s.status === 'rejected' ? { ...s, status: 'draft' } : s
+      }),
+    })
   }
+
+  // per-skill result of the last review, for the form
+  const liveSkillReview = useMemo(
+    () =>
+      new Map(
+        (lic.live?.skills ?? []).map((s) => [
+          s.skillNodeId,
+          { status: s.status === 'rejected' ? ('rejected' as const) : ('approved' as const), reason: s.rejectionReason ?? null },
+        ]),
+      ),
+    [lic.live],
+  )
 
   const save = async (submit: boolean) => {
     if (!draft) return
@@ -106,11 +128,13 @@ export default function TeachPage() {
               onCancel={cancel}
               busy={saving}
               error={saveError}
+              liveSkillReview={liveSkillReview}
             />
           </div>
         </>
-      ) : lic.live || lic.open ? (
+      ) : (lic.live || lic.open) && userId ? (
         <TeacherDashboard
+          userId={userId}
           live={lic.live}
           open={lic.open}
           rejected={lic.rejected}
@@ -119,6 +143,7 @@ export default function TeachPage() {
             if (lic.open) await lic.save(lic.open.license, true)
           }}
           onWithdraw={lic.withdraw}
+          onProofsChanged={lic.reload}
         />
       ) : (
         <div className="flex flex-1 flex-col items-center gap-4 py-6 sm:py-12">

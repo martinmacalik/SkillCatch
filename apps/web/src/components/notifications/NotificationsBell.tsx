@@ -162,7 +162,13 @@ function NotificationBody({
           <p className="text-sm text-gray-900">
             {n.data.kind === 'edit' ? 'Your license changes were approved.' : 'Your teaching license was approved.'}
           </p>
-          <p className="mt-0.5 text-xs text-gray-500">Students can now find you on the pages of your skills.</p>
+          {n.data.rejected_skills?.length ? (
+            <p className="mt-0.5 text-xs text-gray-500">
+              Not approved: {n.data.rejected_skills.join(', ')}. Fix the proof under your license and resubmit.
+            </p>
+          ) : (
+            <p className="mt-0.5 text-xs text-gray-500">Students can now find you on the pages of your skills.</p>
+          )}
           <button onClick={() => onGo('/dashboard/teach')} className={actionLink}>
             Open Teach →
           </button>

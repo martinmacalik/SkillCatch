@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { emitAppEvent } from '../../lib/app-events'
 import { validateUsername, usernameErrorMessage } from '../../lib/usernameRules'
 import { COUNTRIES } from '../../lib/countries'
 import { LANGUAGES } from '../../lib/languages'
@@ -91,6 +92,7 @@ export function IdentitySection({ userId }: { userId: string }) {
       return
     }
     setOriginal(row)
+    emitAppEvent('profile:refresh') // name in the TopBar
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Flash, Search, Settings } from 'reicon-react'
+import { Flash, Pen, Search, Settings } from 'reicon-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
@@ -107,14 +107,18 @@ export function TopBar() {
         {/* Avatar — navigates to profile builder */}
         <button
           onClick={() => navigate('/dashboard/profile-builder')}
-          className="h-9 w-9 shrink-0 overflow-hidden rounded-full sm:h-11 sm:w-11"
-          title="My profile"
+          className="group relative h-9 w-9 shrink-0 overflow-hidden rounded-full sm:h-11 sm:w-11"
+          title="Edit profile"
         >
           {profile?.avatar_url ? (
             <img src={profile.avatar_url} alt="avatar" className="h-full w-full object-cover" />
           ) : (
             <div className="h-full w-full bg-linear-to-br from-pink-300 to-rose-400" />
           )}
+          {/* hover: dimmed photo + white pencil */}
+          <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+            <Pen weight="Filled" className="h-4 w-4 text-white sm:h-5 sm:w-5" />
+          </span>
         </button>
 
         <div className="ml-1 hidden text-right sm:block">

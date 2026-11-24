@@ -45,8 +45,10 @@ export function LicenseCard({ license, className }: LicenseCardProps) {
   const bio = license.bio.trim()
   const verification = license.verification.status
   const pad = fluid(14, 4, 26)
+  // skills the admin left out stay off the card (the teacher sees them under it)
+  const skills = license.skills.filter((s) => s.status !== 'rejected')
   // many skills = more rows of stamps, so the text gets less room
-  const dense = license.skills.length > 4
+  const dense = skills.length > 4
 
   return (
     // @container: everything inside is sized against the card's own width, so
@@ -70,7 +72,7 @@ export function LicenseCard({ license, className }: LicenseCardProps) {
             <img
               src={LogoSquare}
               alt=""
-              className="rounded-md bg-white/95 p-0.5"
+              className="object-contain"
               style={{ width: fluid(20, 4.4, 28), height: fluid(20, 4.4, 28) }}
             />
             <span className="font-bold tracking-tight" style={fontSize(12, 2.4, 15)}>
@@ -147,12 +149,12 @@ export function LicenseCard({ license, className }: LicenseCardProps) {
         </div>
 
         {/* ── skill stamps, wrapping inside the card ── */}
-        {license.skills.length > 0 && (
+        {skills.length > 0 && (
           <footer
             className="mt-auto flex shrink-0 flex-wrap border-t border-dashed border-gray-300/80"
             style={{ gap: fluid(8, 1.8, 12), padding: `${fluid(10, 2.4, 16)} ${pad} ${fluid(12, 3, 20)}` }}
           >
-            {license.skills.map((skill, i) => (
+            {skills.map((skill, i) => (
               <SkillStamp key={skill.id} skill={skill} ink={theme.ink} tilt={STAMP_TILTS[i % STAMP_TILTS.length]} dense={dense} />
             ))}
           </footer>

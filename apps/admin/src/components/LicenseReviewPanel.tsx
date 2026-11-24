@@ -18,6 +18,8 @@ export function LicenseReviewPanel({ id, onClose, onDecided }: Props) {
   const [busy, setBusy] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  // skills left off the license: skillNodeId → reason shown to the teacher
+  const [leftOut, setLeftOut] = useState<Record<string, string>>({});
 
   useEffect(() => {
     api
@@ -66,7 +68,13 @@ export function LicenseReviewPanel({ id, onClose, onDecided }: Props) {
         {error && <p className="text-rose-400 text-sm">{error}</p>}
         {!detail && !error && <p className="text-neutral-500 text-sm">Loading…</p>}
 
-        {detail && <ReviewBody detail={detail} />}
+        {detail && (
+          <ReviewBody
+            detail={detail}
+            leftOut={leftOut}
+            onLeftOutChange={detail.status === 'pending' ? setLeftOut : undefined}
+          />
+        )}
 
         {detail?.status === 'pending' && (
           <div className="sticky bottom-0 -mx-6 -mb-6 border-t border-neutral-800 bg-[#0b0b0b] p-4 space-y-3">
@@ -102,13 +110,19 @@ export function LicenseReviewPanel({ id, onClose, onDecided }: Props) {
                 >
                   Reject…
                 </button>
-                <button
-                  disabled={busy}
-                  onClick={() => void decide(() => api.approveLicense(id))}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium disabled:opacity-40"
-                >
-                  {detail.kind === 'edit' ? 'Approve changes' : 'Approve license'}
-                </button>
+                <ApproveButton
+                  detail={detail}
+                  leftOut={leftOut}
+                  busy={busy}
+                  onApprove={() =>
+                    void decide(() =>
+                      api.approveLicense(
+                        id,
+                        Object.entries(leftOut).map(([skill_node_id, r]) => ({ skill_node_id, reason: r.trim() })),
+                      ),
+                    )
+                  }
+                />
               </div>
             )}
           </div>
@@ -118,11 +132,63 @@ export function LicenseReviewPanel({ id, onClose, onDecided }: Props) {
   );
 }
 
+/** Approve with the per-skill decisions; says how many skills stay off the card. */
+function ApproveButton({
+  detail,
+  leftOut,
+  busy,
+  onApprove,
+}: {
+  detail: LicenseSubmissionDetail;
+  leftOut: Record<string, string>;
+  busy: boolean;
+  onApprove: () => void;
+}) {
+  const skills = detail.payload.skills;
+  const leftOutCount = skills.filter((s) => s.skillNodeId in leftOut).length;
+  const missingReason = Object.values(leftOut).some((r) => !r.trim());
+  const noneLeft = leftOutCount === skills.length;
+
+  const label =
+    leftOutCount === 0
+      ? detail.kind === 'edit'
+        ? 'Approve changes'
+        : 'Approve license'
+      : `Approve without ${leftOutCount} ${leftOutCount === 1 ? 'skill' : 'skills'}`;
+  const hint = noneLeft
+    ? 'Every skill is left out. Reject the license instead.'
+    : missingReason
+      ? 'Give a reason for every skill you leave out.'
+      : undefined;
+
+  return (
+    <div className="flex items-center gap-3">
+      {hint && <span className="text-xs text-amber-400">{hint}</span>}
+      <button
+        disabled={busy || noneLeft || missingReason}
+        onClick={onApprove}
+        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium disabled:opacity-40"
+      >
+        {label}
+      </button>
+    </div>
+  );
+}
+
 /* ── body ── */
 
 const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(' · ');
 
-function ReviewBody({ detail }: { detail: LicenseSubmissionDetail }) {
+function ReviewBody({
+  detail,
+  leftOut,
+  onLeftOutChange,
+}: {
+  detail: LicenseSubmissionDetail;
+  leftOut: Record<string, string>;
+  /** Present only while the submission can still be decided. */
+  onLeftOutChange?: (next: Record<string, string>) => void;
+}) {
   const p = detail.payload;
   const old = detail.live?.payload ?? null;
   const url = (path: string | null) => (path ? detail.file_urls[path] : undefined);
@@ -165,7 +231,7 @@ function ReviewBody({ detail }: { detail: LicenseSubmissionDetail }) {
       </Group>
 
       <Group title="Skills">
-        <Skills now={p} old={old} url={url} />
+        <Skills now={p} old={old} url={url} leftOut={leftOut} onLeftOutChange={onLeftOutChange} />
       </Group>
 
       <Group title="Verification (mock: e-mail codes are not really sent yet)">
@@ -222,30 +288,70 @@ function Skills({
   now,
   old,
   url,
+  leftOut,
+  onLeftOutChange,
 }: {
   now: LicensePayload;
   old: LicensePayload | null;
   url: (path: string | null) => string | undefined;
+  leftOut: Record<string, string>;
+  onLeftOutChange?: (next: Record<string, string>) => void;
 }) {
   const oldById = new Map(old?.skills.map((s) => [s.skillNodeId, s]) ?? []);
   const removed = old?.skills.filter((s) => !now.skills.some((n) => n.skillNodeId === s.skillNodeId)) ?? [];
+
+  const setDecision = (skillNodeId: string, out: boolean) => {
+    if (!onLeftOutChange) return;
+    const next = { ...leftOut };
+    if (out) next[skillNodeId] = next[skillNodeId] ?? '';
+    else delete next[skillNodeId];
+    onLeftOutChange(next);
+  };
 
   return (
     <div className="space-y-3">
       {now.skills.map((s) => {
         const before = oldById.get(s.skillNodeId);
-        const tag = old && !before ? 'added' : before && (before.level !== s.level || JSON.stringify(before.evidence) !== JSON.stringify(s.evidence)) ? 'changed' : null;
+        // already on the card: its proofs are the teacher's to manage, nothing to decide
+        const alreadyApproved = before?.status === 'approved';
+        const evidenceChanged = !!before && JSON.stringify(before.evidence) !== JSON.stringify(s.evidence);
+        const tag =
+          old && !before
+            ? 'added'
+            : before?.status === 'rejected'
+              ? 'resubmitted'
+              : before && (before.level !== s.level || (!alreadyApproved && evidenceChanged))
+                ? 'changed'
+                : null;
+        const isOut = s.skillNodeId in leftOut;
+        const canDecide = !!onLeftOutChange && !alreadyApproved;
+
         return (
-          <div key={s.skillNodeId} className="rounded-lg border border-neutral-800 bg-[#111] p-3">
+          <div
+            key={s.skillNodeId}
+            className={`rounded-lg border p-3 ${isOut ? 'border-rose-900/70 bg-rose-950/20' : 'border-neutral-800 bg-[#111]'}`}
+          >
             <div className="flex items-center justify-between gap-2">
-              <p className="text-white text-sm font-medium">{s.skillName}</p>
+              <p className={`text-sm font-medium ${isOut ? 'text-rose-300' : 'text-white'}`}>{s.skillName}</p>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-neutral-400">{s.level}</span>
                 {tag && (
                   <span className={tag === 'added' ? 'text-emerald-400' : 'text-amber-400'}>{tag}</span>
                 )}
+                {alreadyApproved && <span className="text-neutral-500">on license</span>}
               </div>
             </div>
+
+            {before?.status === 'rejected' && before.rejectionReason && (
+              <p className="mt-1 text-xs text-neutral-500">Previously left out: {before.rejectionReason}</p>
+            )}
+            {alreadyApproved && (
+              <p className="mt-1 text-xs text-neutral-500">
+                Approved earlier. The teacher manages its proofs, so they are not part of this review.
+              </p>
+            )}
+
+            {!alreadyApproved && (
             <ul className="mt-2 space-y-1.5">
               {s.evidence.map((e, i) => {
                 const href = e.kind === 'link' ? e.url ?? undefined : url(e.path);
@@ -272,6 +378,38 @@ function Skills({
                 );
               })}
             </ul>
+            )}
+
+            {canDecide && (
+              <div className="mt-3 space-y-2 border-t border-neutral-800 pt-3">
+                <div className="flex w-fit gap-1 rounded-lg border border-neutral-800 bg-black p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setDecision(s.skillNodeId, false)}
+                    className={`rounded px-2.5 py-1 text-xs font-medium ${!isOut ? 'bg-emerald-700 text-white' : 'text-neutral-500 hover:text-white'}`}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDecision(s.skillNodeId, true)}
+                    className={`rounded px-2.5 py-1 text-xs font-medium ${isOut ? 'bg-rose-700 text-white' : 'text-neutral-500 hover:text-white'}`}
+                  >
+                    Leave out
+                  </button>
+                </div>
+                {isOut && (
+                  <textarea
+                    value={leftOut[s.skillNodeId]}
+                    onChange={(e) => onLeftOutChange?.({ ...leftOut, [s.skillNodeId]: e.target.value })}
+                    maxLength={500}
+                    rows={2}
+                    placeholder="Why is this skill left out? The teacher sees this and can fix the proof."
+                    className="w-full rounded-lg border border-neutral-800 bg-black p-2 text-xs text-white placeholder:text-neutral-600"
+                  />
+                )}
+              </div>
+            )}
           </div>
         );
       })}

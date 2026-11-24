@@ -1,5 +1,5 @@
 import { useState, type SyntheticEvent } from 'react'
-import { AlertTriangle, FileText, Film, Link2, Paperclip, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, BadgeCheck, FileText, Film, Globe, Link2, Lock, Paperclip, Plus, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/cn'
 import {
@@ -21,10 +21,25 @@ interface SkillProofEditorProps {
   onRemove: () => void
   createPreviewUrl: (file: File) => string
   releasePreviewUrl: (url: string | null) => void
+  /**
+   * Skill already approved on the live license: its proofs are managed under the
+   * license (no review), so here they are read-only. Level changes still go to review.
+   */
+  proofsLocked?: boolean
+  /** The admin left this skill off the license: why (string, may be empty), or null. */
+  rejectionReason?: string | null
 }
 
 /** One skill on the license: its level and the list of proofs. */
-export function SkillProofEditor({ skill, onChange, onRemove, createPreviewUrl, releasePreviewUrl }: SkillProofEditorProps) {
+export function SkillProofEditor({
+  skill,
+  onChange,
+  onRemove,
+  createPreviewUrl,
+  releasePreviewUrl,
+  proofsLocked = false,
+  rejectionReason = null,
+}: SkillProofEditorProps) {
   const [adding, setAdding] = useState(false)
 
   const removeEvidence = (ev: LicenseEvidence) => {
@@ -66,9 +81,29 @@ export function SkillProofEditor({ skill, onChange, onRemove, createPreviewUrl, 
         </div>
       </div>
 
+      {rejectionReason !== null && (
+        <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+          Not on your license yet{rejectionReason ? `: ${rejectionReason}` : '.'} Fix its proof and submit for review.
+        </p>
+      )}
+
       {/* ── proofs ── */}
       <p className="mt-4 text-xs font-semibold tracking-widest text-gray-400 uppercase">Proof</p>
 
+      {proofsLocked ? (
+        <>
+          <p className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+            <BadgeCheck className="h-4 w-4 shrink-0" />
+            Approved. Add or remove its proofs under your license, no review needed.
+          </p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {skill.evidence.map((ev) => (
+              <EvidenceRow key={ev.id} evidence={ev} />
+            ))}
+          </ul>
+        </>
+      ) : (
+        <>
       {skill.evidence.length === 0 && !adding && (
         <p className="mt-2 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
           <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -104,18 +139,34 @@ export function SkillProofEditor({ skill, onChange, onRemove, createPreviewUrl, 
           Add proof
         </button>
       )}
+        </>
+      )}
     </div>
   )
 }
 
 /* ── list item ── */
 
-function EvidenceRow({ evidence, onRemove }: { evidence: LicenseEvidence; onRemove: () => void }) {
+/** One proof. Without onRemove it's read-only. */
+export function EvidenceRow({
+  evidence,
+  onRemove,
+  removeDisabled,
+  removeTitle,
+  visibility,
+}: {
+  evidence: LicenseEvidence
+  onRemove?: () => void
+  removeDisabled?: boolean
+  removeTitle?: string
+  /** Public / private switch (shown on the teacher profile or not). */
+  visibility?: { onToggle: () => void; disabled?: boolean }
+}) {
   const source = evidence.kind === 'link' ? hostOf(evidence.url) : evidence.fileName
   const date = formatDate(evidence.date)
 
   return (
-    <li className="flex items-center gap-3 rounded-xl bg-gray-50 p-2 pr-3">
+    <li className="flex items-start gap-3 rounded-xl bg-gray-50 p-2 pr-2.5">
       <EvidenceThumb evidence={evidence} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -123,6 +174,39 @@ function EvidenceRow({ evidence, onRemove }: { evidence: LicenseEvidence; onRemo
             {EVIDENCE_TYPE_LABELS[evidence.type]}
           </span>
           {date && <span className="text-xs text-gray-400">{date}</span>}
+          {/* top right: public / private + delete */}
+          {(visibility || onRemove) && (
+            <div className="ml-auto flex items-center gap-1">
+              {visibility && (
+                <button
+                  type="button"
+                  onClick={visibility.onToggle}
+                  disabled={visibility.disabled}
+                  aria-pressed={evidence.isPublic}
+                  title={evidence.isPublic ? 'Shown on your teacher profile. Click to hide it.' : 'Only you and admins see it. Click to show it on your teacher profile.'}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-colors disabled:cursor-wait disabled:opacity-60',
+                    evidence.isPublic ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : 'bg-white text-gray-500 ring-1 ring-gray-200 hover:text-gray-800',
+                  )}
+                >
+                  {evidence.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                  {evidence.isPublic ? 'Public' : 'Private'}
+                </button>
+              )}
+              {onRemove && (
+                <button
+                  type="button"
+                  onClick={onRemove}
+                  disabled={removeDisabled}
+                  title={removeTitle}
+                  aria-label="Remove proof"
+                  className="cursor-pointer rounded-lg p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {evidence.description && <p className="mt-0.5 truncate text-sm text-gray-800">{evidence.description}</p>}
         {source &&
@@ -130,18 +214,14 @@ function EvidenceRow({ evidence, onRemove }: { evidence: LicenseEvidence; onRemo
             <a href={evidence.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-gray-400 hover:text-purple-700">
               {source}
             </a>
+          ) : evidence.url ? (
+            <a href={evidence.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-gray-400 hover:text-purple-700">
+              {source}
+            </a>
           ) : (
             <p className="truncate text-xs text-gray-400">{source}</p>
           ))}
       </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Remove proof"
-        className="cursor-pointer rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-      >
-        <X className="h-4 w-4" />
-      </button>
     </li>
   )
 }
@@ -173,9 +253,13 @@ interface AddEvidenceFormProps {
   createPreviewUrl: (file: File) => string
   onAdd: (evidence: LicenseEvidence) => void
   onCancel: () => void
+  /** Saving right away (proofs of an approved skill): disables the buttons. */
+  busy?: boolean
+  /** Error from saving, shown with the form's own errors. */
+  externalError?: string | null
 }
 
-function AddEvidenceForm({ licenseSkillId, createPreviewUrl, onAdd, onCancel }: AddEvidenceFormProps) {
+export function AddEvidenceForm({ licenseSkillId, createPreviewUrl, onAdd, onCancel, busy, externalError }: AddEvidenceFormProps) {
   const [source, setSource] = useState<'file' | 'link'>('file')
   // The file waits here; its object URL is created only on "Add", so an
   // abandoned pick never leaves a blob behind.
@@ -194,6 +278,7 @@ function AddEvidenceForm({ licenseSkillId, createPreviewUrl, onAdd, onCancel }: 
       type,
       description: description.trim(),
       date: date || null,
+      isPublic: false,
       createdAt: nowIso(),
     }
 
@@ -298,7 +383,7 @@ function AddEvidenceForm({ licenseSkillId, createPreviewUrl, onAdd, onCancel }: 
         <input className="input sm:w-44" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
       </div>
 
-      {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+      {(error ?? externalError) && <p className="text-xs font-medium text-red-600">{error ?? externalError}</p>}
 
       <div className="flex justify-end gap-2">
         <button
@@ -311,9 +396,10 @@ function AddEvidenceForm({ licenseSkillId, createPreviewUrl, onAdd, onCancel }: 
         <button
           type="button"
           onClick={submit}
-          className="cursor-pointer rounded-xl bg-purple-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-800"
+          disabled={busy}
+          className="cursor-pointer rounded-xl bg-purple-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-800 disabled:cursor-wait disabled:opacity-60"
         >
-          Add proof
+          {busy ? 'Saving…' : 'Add proof'}
         </button>
       </div>
     </div>

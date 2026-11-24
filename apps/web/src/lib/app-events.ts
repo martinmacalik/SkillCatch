@@ -1,5 +1,5 @@
 // Tiny app-wide events over window, for components that don't share state.
-//   profile:refresh → TopBar reloads XP / coins
+//   profile:refresh → TopBar reloads XP / coins / avatar / name
 //   timer:stopped   → heatmaps reload their data
 
 type AppEvent = 'profile:refresh' | 'timer:stopped'

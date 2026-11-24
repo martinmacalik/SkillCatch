@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { emitAppEvent } from './app-events'
 
 const MAX_DIM = 512
 const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
@@ -72,6 +73,7 @@ export async function uploadAvatar(
     .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
     .eq('id', userId)
   if (updateErr) throw new AvatarUploadError(updateErr.message)
+  emitAppEvent('profile:refresh') // TopBar shows the new photo right away
 
   await tryDeletePrior(userId, priorUrl)
   return publicUrl
@@ -83,5 +85,6 @@ export async function removeAvatar(userId: string, priorUrl: string | null) {
     .update({ avatar_url: null, updated_at: new Date().toISOString() })
     .eq('id', userId)
   if (error) throw new AvatarUploadError(error.message)
+  emitAppEvent('profile:refresh')
   await tryDeletePrior(userId, priorUrl)
 }

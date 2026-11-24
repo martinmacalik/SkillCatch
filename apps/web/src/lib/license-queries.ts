@@ -4,6 +4,7 @@ import type {
   EvidenceKind,
   EvidenceType,
   InstitutionType,
+  LicenseEvidence,
   LicensePayload,
   LicenseSkill,
   LicenseTheme,
@@ -44,6 +45,7 @@ interface EvidenceRow {
   description: string
   date: string | null
   sort_order: number
+  is_public: boolean
 }
 
 interface LicenseSkillRow {
@@ -52,6 +54,8 @@ interface LicenseSkillRow {
   skill_node_id: string
   level: TeachingLevel
   sort_order: number
+  status: 'approved' | 'rejected'
+  rejection_reason: string | null
   skill_nodes: { name: string } | null
   license_evidence: EvidenceRow[]
 }
@@ -161,6 +165,23 @@ function filePathsOfPayload(p: LicensePayload): string[] {
 
 /* ── row / payload → TeacherLicense ── */
 
+function evidenceFromRow(e: EvidenceRow, signed: Map<string, string>, createdAt: string): LicenseEvidence {
+  return {
+    id: e.id,
+    licenseSkillId: e.license_skill_id,
+    kind: e.kind,
+    type: e.type,
+    url: e.kind === 'link' ? (e.url ?? '') : (signed.get(e.storage_path ?? '') ?? ''),
+    path: e.storage_path,
+    fileName: e.file_name,
+    description: e.description,
+    date: e.date,
+    isPublic: e.is_public ?? false,
+    createdAt,
+    file: null,
+  }
+}
+
 function liveToLicense(row: LicenseRow, displayName: string, signed: Map<string, string>): TeacherLicense {
   const ver = first(row.educator_verifications)
   const skills: LicenseSkill[] = [...row.license_skills]
@@ -171,22 +192,11 @@ function liveToLicense(row: LicenseRow, displayName: string, signed: Map<string,
       skillNodeId: s.skill_node_id,
       skillName: s.skill_nodes?.name ?? 'Skill',
       level: s.level,
-      status: 'approved',
+      status: s.status ?? 'approved',
+      rejectionReason: s.rejection_reason ?? null,
       evidence: [...(s.license_evidence ?? [])]
         .sort((a, b) => a.sort_order - b.sort_order)
-        .map((e) => ({
-          id: e.id,
-          licenseSkillId: s.id,
-          kind: e.kind,
-          type: e.type,
-          url: e.kind === 'link' ? (e.url ?? '') : (signed.get(e.storage_path ?? '') ?? ''),
-          path: e.storage_path,
-          fileName: e.file_name,
-          description: e.description,
-          date: e.date,
-          createdAt: row.updated_at,
-          file: null,
-        })),
+        .map((e) => evidenceFromRow(e, signed, row.updated_at)),
     }))
 
   const verification: EducatorVerification = ver
@@ -285,6 +295,7 @@ function payloadToLicense(
           fileName: e.fileName,
           description: e.description,
           date: e.date,
+          isPublic: e.isPublic ?? false,
           createdAt: sub.updated_at,
           file: null,
         })),
@@ -397,6 +408,7 @@ async function toPayload(draft: TeacherLicense, userId: string): Promise<License
           fileName: e.fileName,
           description: e.description,
           date: e.date,
+          isPublic: e.isPublic,
         })),
       ),
     })),
@@ -460,4 +472,47 @@ export async function saveSubmission(opts: {
 export async function withdrawSubmission(id: string): Promise<void> {
   const { error } = await supabase.from('teacher_license_submissions').delete().eq('id', id)
   if (error) throw error
+}
+
+/* ── proofs of an APPROVED skill: managed by the teacher, no review ── */
+// Migration 20261124001: license_evidence_add / license_evidence_remove check that
+// the skill is the caller's and approved, and keep at least one proof.
+
+/** Uploads the file (if any) and adds the proof to the live license. */
+export async function addApprovedProof(userId: string, licenseSkillId: string, ev: LicenseEvidence): Promise<LicenseEvidence> {
+  const path = ev.kind === 'link' ? null : ev.file ? await upload(FILES_BUCKET, userId, ev.file) : ev.path
+  const { data, error } = await supabase.rpc('license_evidence_add', {
+    p_license_skill_id: licenseSkillId,
+    p_kind: ev.kind,
+    p_type: ev.type,
+    p_url: ev.kind === 'link' ? ev.url : null,
+    p_path: path,
+    p_file_name: ev.fileName,
+    p_description: ev.description,
+    p_date: ev.date,
+    p_is_public: ev.isPublic,
+  })
+  if (error) throw error
+  const row = data as EvidenceRow
+  const signed = row.storage_path ? await signFiles([row.storage_path]) : new Map<string, string>()
+  return evidenceFromRow(row, signed, nowIso())
+}
+
+/** Removes a proof from an approved skill (the last one can't go). The file stays in Storage. */
+export async function removeApprovedProof(evidenceId: string): Promise<void> {
+  const { error } = await supabase.rpc('license_evidence_remove', { p_evidence_id: evidenceId })
+  if (error) {
+    if (error.message?.includes('last_proof')) throw new Error('A skill on your license needs at least one proof.')
+    throw error
+  }
+}
+
+/** Show the proof on the teacher profile or not (approved skills only). */
+export async function setProofPublic(evidenceId: string, isPublic: boolean): Promise<void> {
+  const { error } = await supabase.rpc('license_evidence_set_public', { p_evidence_id: evidenceId, p_public: isPublic })
+  if (error) throw error
+}
+
+function nowIso(): string {
+  return new Date().toISOString()
 }

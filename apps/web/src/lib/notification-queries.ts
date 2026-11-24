@@ -27,7 +27,8 @@ export type AppNotification =
   | {
       id: string
       type: 'license_approved'
-      data: { kind: 'new' | 'edit' }
+      /** rejected_skills: names of skills the admin left off the license (migration 20261124001) */
+      data: { kind: 'new' | 'edit'; rejected_skills?: string[] }
       read_at: string | null
       created_at: string
     }

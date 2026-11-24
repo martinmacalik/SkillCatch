@@ -42,6 +42,8 @@ export interface LicenseEvidence {
   description: string
   /** ISO date `YYYY-MM-DD`, null when not filled in. */
   date: string | null
+  /** The teacher wants it on their teacher profile (private by default). */
+  isPublic: boolean
   createdAt: string
   /** client-only: the picked file, uploaded on save. */
   file: File | null
@@ -54,7 +56,10 @@ export interface LicenseSkill {
   skillNodeId: string
   skillName: string
   level: TeachingLevel
+  /** On the live license: 'approved' (on the card) or 'rejected' (left out by the admin). */
   status: LicenseStatus
+  /** Why the admin left this skill out (live license only). */
+  rejectionReason?: string | null
   evidence: LicenseEvidence[]
 }
 
@@ -182,6 +187,8 @@ export interface PayloadEvidence {
   fileName: string | null
   description: string
   date: string | null
+  /** Shown on the teacher profile (older payloads don't have it → private). */
+  isPublic?: boolean
 }
 
 /**

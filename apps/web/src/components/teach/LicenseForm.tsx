@@ -51,6 +51,11 @@ interface LicenseFormProps {
   busy?: boolean
   /** Last save error, shown above the buttons. */
   error?: string | null
+  /**
+   * Review result of each skill on the live license (skillNodeId → status / reason):
+   * approved skills keep their proofs read-only here, left-out ones show why.
+   */
+  liveSkillReview?: Map<string, { status: 'approved' | 'rejected'; reason: string | null }>
 }
 
 /**
@@ -68,6 +73,7 @@ export function LicenseForm({
   onCancel,
   busy = false,
   error = null,
+  liveSkillReview,
 }: LicenseFormProps) {
   const ids = useId()
   const set = <K extends keyof TeacherLicense>(key: K, v: TeacherLicense[K]) => onChange({ ...value, [key]: v })
@@ -312,6 +318,12 @@ export function LicenseForm({
                 onRemove={() => removeSkill(skill)}
                 createPreviewUrl={createPreviewUrl}
                 releasePreviewUrl={releasePreviewUrl}
+                proofsLocked={liveSkillReview?.get(skill.skillNodeId)?.status === 'approved'}
+                rejectionReason={
+                  liveSkillReview?.get(skill.skillNodeId)?.status === 'rejected'
+                    ? (liveSkillReview.get(skill.skillNodeId)?.reason ?? '')
+                    : null
+                }
               />
             ))}
           </div>

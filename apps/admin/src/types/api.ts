@@ -109,6 +109,12 @@ export interface PaginatedResponse<T> {
 export type LicenseReviewStatus = 'pending' | 'approved' | 'rejected';
 export type LicenseKind = 'new' | 'edit';
 
+/** A skill the admin leaves off the license when approving. */
+export interface RejectedLicenseSkill {
+  skill_node_id: string;
+  reason: string;
+}
+
 /** Same shape as LicensePayload in apps/web/src/types/teaching.ts */
 export interface LicensePayload {
   titleBefore: string;
@@ -135,6 +141,9 @@ export interface LicensePayload {
       description: string;
       date: string | null;
     }[];
+    /** Only on the live license: per-skill review result. */
+    status?: 'approved' | 'rejected';
+    rejectionReason?: string | null;
   }[];
   verification: {
     kind: string | null;

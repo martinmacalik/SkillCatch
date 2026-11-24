@@ -18,6 +18,20 @@ const statusSchema = z.enum(['pending', 'approved', 'rejected']).default('pendin
 const rejectSchema = z.object({
   reason: z.string().trim().min(1, 'Reason is required').max(1000),
 });
+// skills the admin leaves off the license; everything else in the submission is approved
+const approveSchema = z
+  .object({
+    rejected_skills: z
+      .array(
+        z.object({
+          skill_node_id: uuidSchema,
+          reason: z.string().trim().min(1, 'Reason is required').max(500),
+        }),
+      )
+      .max(50)
+      .default([]),
+  })
+  .default({ rejected_skills: [] });
 
 // Same shape as LicensePayload in apps/web/src/types/teaching.ts
 interface PayloadEvidence {
@@ -41,7 +55,15 @@ interface Payload {
   bio: string;
   photoPath: string | null;
   theme: string;
-  skills: { skillNodeId: string; skillName: string; level: string; evidence: PayloadEvidence[] }[];
+  skills: {
+    skillNodeId: string;
+    skillName: string;
+    level: string;
+    evidence: PayloadEvidence[];
+    /** Only on the live license: per-skill review result. */
+    status?: 'approved' | 'rejected';
+    rejectionReason?: string | null;
+  }[];
   verification: {
     kind: string | null;
     method: string | null;
@@ -116,6 +138,8 @@ interface LiveRow {
     skill_node_id: string;
     level: string;
     sort_order: number;
+    status: 'approved' | 'rejected';
+    rejection_reason: string | null;
     skill_nodes: { name: string } | null;
     license_evidence: {
       kind: PayloadEvidence['kind'];
@@ -173,6 +197,8 @@ async function livePayload(userId: string): Promise<{ payload: Payload; approved
           skillNodeId: s.skill_node_id,
           skillName: s.skill_nodes?.name ?? 'Skill',
           level: s.level,
+          status: s.status,
+          rejectionReason: s.rejection_reason,
           evidence: [...s.license_evidence]
             .sort((a, b) => a.sort_order - b.sort_order)
             .map((e) => ({
@@ -278,13 +304,15 @@ licensesRouter.get('/:id', requireAuth, requireAdmin, async (req, res, next) => 
   }
 });
 
-// POST /licenses/:id/approve
+// POST /licenses/:id/approve  { rejected_skills?: [{ skill_node_id, reason }] }
 licensesRouter.post('/:id/approve', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const id = uuidSchema.parse(req.params.id);
+    const { rejected_skills } = approveSchema.parse(req.body ?? {});
     const { data: licenseId, error } = await supabaseAdmin.rpc('approve_license_submission', {
       p_submission_id: id,
       p_actor_user_id: req.user.id,
+      p_rejected: rejected_skills.map((r) => ({ skillNodeId: r.skill_node_id, reason: r.reason })),
     });
     if (error) {
       if (error.message?.includes('submission_not_found')) {
@@ -299,9 +327,13 @@ licensesRouter.post('/:id/approve', requireAuth, requireAdmin, async (req, res, 
         res.status(422).json({ error: 'The license has no skills' });
         return;
       }
+      if (error.message?.includes('no_approved_skills')) {
+        res.status(422).json({ error: 'Approve at least one skill, or reject the whole license' });
+        return;
+      }
       throw error;
     }
-    res.json({ id, status: 'approved', license_id: licenseId });
+    res.json({ id, status: 'approved', license_id: licenseId, rejected_skills: rejected_skills.length });
   } catch (err) {
     next(err);
   }

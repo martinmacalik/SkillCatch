@@ -94,6 +94,7 @@ export async function fetchSkillTeachers(skillNodeId: string): Promise<SkillTeac
       'level, teacher_licenses!inner(user_id, title_before, title_after, role, institution_name, photo_path, verification_kind, verification_status, profiles(first_name, last_name, username, avatar_url))',
     )
     .eq('skill_node_id', skillNodeId)
+    .eq('status', 'approved') // skills the admin left out are not taught
     .limit(30)
   if (error) throw error
   return ((data ?? []) as unknown as SkillTeacherRow[])

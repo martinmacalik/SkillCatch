@@ -15,7 +15,7 @@ import {
 
 import { cn } from '@/lib/cn'
 import { supabase } from '@/lib/supabaseClient'
-import TextLogoBlack from '@/assets/TextLogoColor.png'
+import LogoColored from '@/assets/LogoColored.png'
 
 const menuItems: { icon: IconComponent; label: string; to: string }[] = [
   { icon: Home,     label: 'Overview',  to: '/dashboard' },
@@ -74,8 +74,9 @@ export function Sidebar() {
   return (
     <aside className="hidden 2xl:flex w-[230px] shrink-0 flex-col rounded-2xl bg-gray-100">
       {/* Logo */}
-      <div className="px-6 pb-5 pt-7">
-        <img src={TextLogoBlack} alt="SkillCatch" className="h-9 w-auto" />
+      <div className="flex items-center gap-2.5 px-6 pb-5 pt-7">
+        <img src={LogoColored} alt="" className="h-9 w-auto" />
+        <span className="text-[22px] font-bold leading-none tracking-tight text-gray-900">SkillCatch</span>
       </div>
 
       {/* Nav container */}
