@@ -6,9 +6,9 @@ const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 
 export class AvatarUploadError extends Error {}
 
-async function resizeToBlob(file: File): Promise<Blob> {
+async function resizeToBlob(file: File, maxDim: number): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
-  const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height))
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
   const w = Math.round(bitmap.width * scale)
   const h = Math.round(bitmap.height * scale)
 
@@ -40,7 +40,7 @@ async function tryDeletePrior(userId: string, priorUrl: string | null) {
 
 // validate + resize + upload into the user's folder; returns the object path
 // (also used for group photos, see chat-queries.ts)
-export async function uploadToAvatars(userId: string, file: File): Promise<string> {
+export async function uploadToAvatars(userId: string, file: File, maxDim = MAX_DIM): Promise<string> {
   if (file.size > MAX_BYTES) {
     throw new AvatarUploadError('File is larger than 2 MB.')
   }
@@ -48,7 +48,7 @@ export async function uploadToAvatars(userId: string, file: File): Promise<strin
     throw new AvatarUploadError('Only JPEG, PNG, or WebP images are allowed.')
   }
 
-  const blob = await resizeToBlob(file)
+  const blob = await resizeToBlob(file, maxDim)
   const objectName = `${userId}/${crypto.randomUUID()}.webp`
 
   const { error: uploadErr } = await supabase.storage
@@ -77,6 +77,32 @@ export async function uploadAvatar(
 
   await tryDeletePrior(userId, priorUrl)
   return publicUrl
+}
+
+// Profile page banner: same bucket + folder as the avatar, just a wider resize
+const BANNER_MAX_DIM = 1600
+
+export async function uploadBanner(userId: string, file: File, priorUrl: string | null): Promise<string> {
+  const objectName = await uploadToAvatars(userId, file, BANNER_MAX_DIM)
+  const publicUrl = supabase.storage.from('avatars').getPublicUrl(objectName).data.publicUrl
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ banner_url: publicUrl, updated_at: new Date().toISOString() })
+    .eq('id', userId)
+  if (error) throw new AvatarUploadError(error.message)
+
+  await tryDeletePrior(userId, priorUrl)
+  return publicUrl
+}
+
+export async function removeBanner(userId: string, priorUrl: string | null) {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ banner_url: null, updated_at: new Date().toISOString() })
+    .eq('id', userId)
+  if (error) throw new AvatarUploadError(error.message)
+  await tryDeletePrior(userId, priorUrl)
 }
 
 export async function removeAvatar(userId: string, priorUrl: string | null) {

@@ -84,7 +84,7 @@ export function TeachersWidget({ skillNodeId }: { skillNodeId: string }) {
             const picture = t.photoUrl ?? t.avatarUrl
             return (
               <div key={t.userId} className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-gray-50">
-                <Link to={`/profile/${t.userId}`} className="flex min-w-0 flex-1 items-center gap-3">
+                <Link to={`/dashboard/profile/${t.userId}`} className="flex min-w-0 flex-1 items-center gap-3">
                   {picture ? (
                     <img src={picture} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
                   ) : (

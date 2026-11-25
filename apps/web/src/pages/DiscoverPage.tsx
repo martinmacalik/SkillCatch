@@ -92,7 +92,7 @@ export default function DiscoverPage() {
             return (
               <button
                 key={person.id}
-                onClick={() => navigate(`/profile/${person.id}`)}
+                onClick={() => navigate(`/dashboard/profile/${person.id}`)}
                 className="flex items-center gap-3 rounded-2xl bg-white p-4 text-left transition hover:-translate-y-0.5"
                 style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}
               >

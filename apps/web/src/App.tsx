@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 
 import LandingPage from '@/pages/LandingPage.tsx'
 import SignInPage from './pages/SignInPage'
@@ -20,6 +20,11 @@ import ProfileBuilderPage from './pages/ProfileBuilderPage'
 import PublicProfilePage from './pages/PublicProfilePage'
 import RewardsPage from './pages/RewardsPage'
 import { useActivityTracker } from './hooks/useActivityTracker'
+
+function LegacyProfileRedirect() {
+  const { id } = useParams<{ id: string }>()
+  return <Navigate to={`/dashboard/profile/${id}`} replace />
+}
 
 export default function App() {
   useActivityTracker()
@@ -50,6 +55,7 @@ export default function App() {
         <Route path="help" element={<HelpPage />} />
         <Route path="skill-feedback" element={<SkillFeedbackPage />} />
         <Route path="profile-builder" element={<ProfileBuilderPage />} />
+        <Route path="profile/:id" element={<PublicProfilePage />} />
         <Route path="rewards" element={<RewardsPage />} />
       </Route>
       <Route
@@ -60,14 +66,8 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/profile/:id"
-        element={
-          <ProtectedRoute>
-            <PublicProfilePage />
-          </ProtectedRoute>
-        }
-      />
+      {/* old full-screen URL → profile now lives inside the app */}
+      <Route path="/profile/:id" element={<LegacyProfileRedirect />} />
       <Route
         path="*"
         element={

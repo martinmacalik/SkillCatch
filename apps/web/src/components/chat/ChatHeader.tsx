@@ -56,7 +56,7 @@ export function ChatHeader({ conversation: c, isRequest, myId, blockedIds, actio
           </div>
         </div>
       ) : c.other ? (
-        <Link to={`/profile/${c.other.id}`} className="flex min-w-0 items-center gap-3">
+        <Link to={`/dashboard/profile/${c.other.id}`} className="flex min-w-0 items-center gap-3">
           <ChatAvatar profile={c.other} className="h-10 w-10" />
           <div className="min-w-0">
             <p className="truncate font-semibold text-gray-900">{displayName(c.other)}</p>

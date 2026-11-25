@@ -13,6 +13,8 @@ interface Profile {
   username: string | null
   avatar_url: string | null
   bio: string | null
+  banner_url: string | null
+  profile_page_created_at: string | null
 }
 
 function CardRenderer({ card }: { card: ProfileCard }) {
@@ -137,7 +139,7 @@ export default function PublicProfilePage() {
     Promise.all([
       supabase
         .from('profiles')
-        .select('id, first_name, last_name, username, avatar_url, bio')
+        .select('id, first_name, last_name, username, avatar_url, bio, banner_url, profile_page_created_at')
         .eq('id', id)
         .single(),
       supabase
@@ -171,7 +173,7 @@ export default function PublicProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex flex-1 items-center justify-center py-24">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
       </div>
     )
@@ -181,52 +183,67 @@ export default function PublicProfilePage() {
 
   const displayName = [profile.first_name, profile.last_name].filter(Boolean).join(' ') || profile.username || 'User'
 
+  const messageButton = !isOwnProfile && (
+    <div className="flex shrink-0 flex-col items-end gap-1">
+      <button
+        onClick={handleMessage}
+        disabled={startingChat}
+        className="flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
+      >
+        <MessageSquare className="h-4 w-4" />
+        Message
+      </button>
+      {chatError && <p className="text-xs text-red-500">{chatError}</p>}
+    </div>
+  )
+
+  // Page not set up yet (never clicked "Set up profile page") → just the notice
+  if (!profile.profile_page_created_at) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 py-32 text-center">
+        <p className="text-sm text-gray-400">
+          {isOwnProfile
+            ? "You haven't set up your profile page yet."
+            : "This person hasn't set up their profile page yet."}
+        </p>
+        {messageButton}
+      </div>
+    )
+  }
+
+  // Same layout + sizes as the editor (ProfileBuilderPage) so the editor is an accurate preview
   return (
-    <div className="min-h-screen bg-white">
-    <div className="mx-auto max-w-2xl px-4 py-10">
-      {/* Header */}
-      <div className="mb-8 flex items-center gap-5">
-        {profile.avatar_url ? (
-          <img src={profile.avatar_url} alt="" className="h-20 w-20 rounded-full object-cover" />
-        ) : (
-          <div className="h-20 w-20 rounded-full bg-linear-to-br from-pink-300 to-rose-400" />
-        )}
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">{displayName}</h1>
-          {profile.username && (
-            <p className="text-sm text-gray-400">@{profile.username}</p>
-          )}
-          {profile.bio && (
-            <p className="mt-1.5 text-sm text-gray-600">{profile.bio}</p>
-          )}
+    <div className="flex flex-col">
+      {profile.banner_url && (
+        <div className="h-48 w-full overflow-hidden rounded-2xl bg-gray-100">
+          <img src={profile.banner_url} alt="" className="h-full w-full object-cover" />
         </div>
-        {!isOwnProfile && (
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <button
-              onClick={handleMessage}
-              disabled={startingChat}
-              className="flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700 disabled:opacity-50"
-            >
-              <MessageSquare className="h-4 w-4" />
-              Message
-            </button>
-            {chatError && <p className="text-xs text-red-500">{chatError}</p>}
+      )}
+
+      <div className="mx-auto w-full max-w-3xl px-2">
+        {profile.avatar_url && (
+          <img
+            src={profile.avatar_url}
+            alt=""
+            className={`h-24 w-24 rounded-full border-4 border-white object-cover shadow-sm ${profile.banner_url ? '-mt-12' : 'mt-6'}`}
+          />
+        )}
+
+        <div className="mt-6 flex items-start gap-4">
+          <h1 className="min-w-0 flex-1 text-4xl font-bold text-gray-900">{displayName}</h1>
+          {messageButton}
+        </div>
+
+        {profile.bio && <p className="mt-2 whitespace-pre-line text-base text-gray-600">{profile.bio}</p>}
+
+        {cards.length > 0 && (
+          <div className="mt-8 flex flex-col gap-4 border-t border-gray-100 pt-4">
+            {cards.map(card => (
+              <CardRenderer key={card.id} card={card} />
+            ))}
           </div>
         )}
       </div>
-
-      {/* Cards */}
-      <div className="flex flex-col gap-4">
-        {cards.map(card => (
-          <CardRenderer key={card.id} card={card} />
-        ))}
-        {cards.length === 0 && (
-          <p className="py-16 text-center text-sm text-gray-400">
-            This user hasn't set up their profile yet.
-          </p>
-        )}
-      </div>
-    </div>
     </div>
   )
 }

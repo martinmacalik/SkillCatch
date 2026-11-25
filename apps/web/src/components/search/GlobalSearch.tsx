@@ -198,7 +198,7 @@ export function GlobalSearch({ variant = 'bar', onClose, onRequestOverlay, class
           image: p.avatar_url,
           round: true,
           icon: User,
-          run: () => navigate(`/profile/${p.id}`),
+          run: () => navigate(`/dashboard/profile/${p.id}`),
         })),
       }
     }
@@ -214,7 +214,7 @@ export function GlobalSearch({ variant = 'bar', onClose, onRequestOverlay, class
           image: t.avatar_url,
           round: true,
           icon: GraduationCap,
-          run: () => navigate(`/profile/${t.user_id}`),
+          run: () => navigate(`/dashboard/profile/${t.user_id}`),
         })),
       }
     }

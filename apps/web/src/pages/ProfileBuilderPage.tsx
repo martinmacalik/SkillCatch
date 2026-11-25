@@ -1,185 +1,332 @@
-import { useEffect, useRef, useState } from 'react'
-import { Plus, ExternalLink } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { FileText, Image as ImageIcon, Plus, Smile } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
-import { SortableCardList, type ProfileCard } from '@/components/profile-builder/SortableCardList'
-import { CardEditorPanel } from '@/components/profile-builder/CardEditorPanel'
-import { RewardHint } from '@/components/rewards/RewardHint'
+import { emitAppEvent } from '@/lib/app-events'
+import { uploadAvatar, removeAvatar, uploadBanner, removeBanner } from '@/lib/avatarUpload'
 
-type CardType = ProfileCard['type']
+// Notion-style profile page. Everything here is the same data as Settings → Identity
+// (name, avatar, bio live in `profiles`), plus a banner and a "page set up" timestamp.
 
-const CARD_TYPE_OPTIONS: { type: CardType; label: string; description: string }[] = [
-  { type: 'text',       label: 'Text',        description: 'A heading and body text block' },
-  { type: 'text_photo', label: 'Text + Photo', description: 'Text alongside an image' },
-  { type: 'photo',      label: 'Photo',        description: 'A full-width image with caption' },
-  { type: 'skills',     label: 'Skills',       description: 'Showcase skills from your library' },
-  { type: 'cv',         label: 'CV',           description: 'Upload your CV as a PDF' },
-]
+type PageProfile = {
+  first_name: string | null
+  last_name: string | null
+  avatar_url: string | null
+  bio: string | null
+  banner_url: string | null
+  profile_page_created_at: string | null
+}
+
+const BIO_MAX = 160
+
+const fullName = (p: PageProfile) => [p.first_name, p.last_name].filter(Boolean).join(' ')
+
+// "Martin Mačalík" → first: Martin, last: Mačalík (everything after the first space)
+function splitName(name: string): { first_name: string; last_name: string | null } {
+  const i = name.indexOf(' ')
+  if (i === -1) return { first_name: name, last_name: null }
+  return { first_name: name.slice(0, i), last_name: name.slice(i + 1).trim() || null }
+}
 
 export default function ProfileBuilderPage() {
   const { session } = useAuth()
   const userId = session?.user?.id ?? ''
 
-  const [cards, setCards] = useState<ProfileCard[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [showTypePicker, setShowTypePicker] = useState(false)
-  const [userSkills, setUserSkills] = useState<{ id: string; name: string }[]>([])
-  const [loading, setLoading] = useState(true)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const selectedCard = cards.find(c => c.id === selectedId) ?? null
+  const [profile, setProfile] = useState<PageProfile | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [justCreated, setJustCreated] = useState(false) // clicked "Set up" → focus the name
 
   useEffect(() => {
     if (!userId) return
-    Promise.all([
-      supabase
-        .from('profile_cards')
-        .select('*')
-        .eq('user_id', userId)
-        .order('position'),
-      supabase
-        .from('user_skills')
-        .select('skill_node_id, skill_nodes(name)')
-        .eq('user_id', userId),
-    ]).then(([{ data: cardData }, { data: skillData }]) => {
-      setCards((cardData ?? []) as ProfileCard[])
-      setUserSkills(
-        (skillData ?? []).map((s: { skill_node_id: string; skill_nodes: { name: string } | { name: string }[] | null }) => ({
-          id: s.skill_node_id,
-          name: Array.isArray(s.skill_nodes) ? (s.skill_nodes[0]?.name ?? '') : (s.skill_nodes?.name ?? ''),
-        }))
-      )
-      setLoading(false)
-    })
+    supabase
+      .from('profiles')
+      .select('first_name, last_name, avatar_url, bio, banner_url, profile_page_created_at')
+      .eq('id', userId)
+      .single()
+      .then(({ data, error }) => {
+        if (error) setError('Could not load your profile.')
+        else setProfile(data as PageProfile)
+      })
   }, [userId])
 
-  const addCard = async (type: CardType) => {
-    setShowTypePicker(false)
-    const position = cards.length + 1
-    const { data, error } = await supabase
-      .from('profile_cards')
-      .insert({ user_id: userId, type, position, data: {} })
-      .select()
-      .single()
-    if (!error && data) {
-      const newCard = data as ProfileCard
-      setCards(prev => [...prev, newCard])
-      setSelectedId(newCard.id)
-    }
+  // Save a few profile columns, update local state and let the TopBar refresh its avatar/name
+  const save = async (patch: Partial<PageProfile>) => {
+    setError(null)
+    setProfile(p => (p ? { ...p, ...patch } : p))
+    const { error } = await supabase
+      .from('profiles')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+    if (error) setError('Could not save. Try again.')
+    else emitAppEvent('profile:refresh')
   }
 
-  const deleteCard = async (id: string) => {
-    await supabase.from('profile_cards').delete().eq('id', id)
-    setCards(prev => prev.filter(c => c.id !== id))
-    if (selectedId === id) setSelectedId(null)
-  }
-
-  const handleReorder = async (reordered: ProfileCard[]) => {
-    setCards(reordered)
-    await supabase.rpc('reorder_profile_cards', {
-      p_user_id: userId,
-      p_ids: reordered.map(c => c.id),
-    })
-  }
-
-  const handleCardDataChange = (data: Record<string, unknown>) => {
-    setCards(prev => prev.map(c => c.id === selectedId ? { ...c, data } : c))
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(async () => {
-      await supabase.from('profile_cards').update({ data }).eq('id', selectedId!)
-    }, 500)
-  }
-
-  if (loading) {
+  if (!profile) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+      <div className="flex flex-1 items-center justify-center py-24">
+        {error ? (
+          <p className="text-sm text-red-500">{error}</p>
+        ) : (
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+        )}
       </div>
     )
   }
 
+  if (!profile.profile_page_created_at) {
+    return (
+      <SetupPrompt
+        onSetup={() => {
+          setJustCreated(true)
+          void save({ profile_page_created_at: new Date().toISOString() })
+        }}
+      />
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
-            My Profile
-            <RewardHint id="complete_profile" title="For a complete profile: photo, bio and profile cards" />
-          </h1>
-          <p className="mt-0.5 text-sm text-gray-400">Build how others see you on SkillCatch</p>
-        </div>
-        <a
-          href={`/profile/${userId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:border-indigo-400 hover:text-indigo-600"
-        >
-          <ExternalLink className="h-4 w-4" />
-          View public profile
-        </a>
-      </div>
+    <ProfileEditor
+      userId={userId}
+      profile={profile}
+      autoFocusName={justCreated}
+      save={save}
+      setProfile={setProfile}
+      error={error}
+      setError={setError}
+    />
+  )
+}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Left: card list */}
-        <div>
-          <p className="mb-2 text-sm font-semibold text-gray-700">Cards</p>
-          {cards.length === 0 && (
-            <div className="mb-3 flex h-24 items-center justify-center rounded-xl border border-dashed border-gray-200">
-              <p className="text-sm text-gray-400">Add your first card below</p>
-            </div>
-          )}
-          <SortableCardList
-            cards={cards}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onDelete={deleteCard}
-            onReorder={handleReorder}
+// ── First visit ────────────────────────────────────────────────────────────
+
+function SetupPrompt({ onSetup }: { onSetup: () => void }) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center py-32 text-center">
+      <p className="text-base font-semibold text-gray-900">Your profile page</p>
+      <p className="mt-1 max-w-xs text-sm text-gray-400">
+        A page other people see when they open your profile. Until you set it up, it stays empty.
+      </p>
+      <button
+        onClick={onSetup}
+        className="mt-5 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700"
+      >
+        Set up profile page
+      </button>
+    </div>
+  )
+}
+
+// ── Editor ─────────────────────────────────────────────────────────────────
+
+type EditorProps = {
+  userId: string
+  profile: PageProfile
+  autoFocusName: boolean
+  save: (patch: Partial<PageProfile>) => Promise<void>
+  setProfile: React.Dispatch<React.SetStateAction<PageProfile | null>>
+  error: string | null
+  setError: (e: string | null) => void
+}
+
+function ProfileEditor({ userId, profile, autoFocusName, save, setProfile, error, setError }: EditorProps) {
+  const [name, setName] = useState(fullName(profile))
+  const [bio, setBio] = useState(profile.bio ?? '')
+  const [bioOpen, setBioOpen] = useState(false)
+  const [plusOpen, setPlusOpen] = useState(false)
+  const [uploading, setUploading] = useState<'avatar' | 'banner' | null>(null)
+
+  const nameRef = useRef<HTMLInputElement>(null)
+  const bioRef = useRef<HTMLTextAreaElement>(null)
+  const avatarInput = useRef<HTMLInputElement>(null)
+  const bannerInput = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (autoFocusName) nameRef.current?.focus()
+    // only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (bioOpen) bioRef.current?.focus()
+  }, [bioOpen])
+
+  const saveName = () => {
+    const trimmed = name.trim().replace(/\s+/g, ' ')
+    // Left empty → put the saved name back
+    if (!trimmed) { setName(fullName(profile)); return }
+    setName(trimmed)
+    if (trimmed !== fullName(profile)) void save(splitName(trimmed))
+  }
+
+  const saveBio = () => {
+    const trimmed = bio.trim()
+    setBio(trimmed)
+    setBioOpen(false)
+    if (trimmed !== (profile.bio ?? '')) void save({ bio: trimmed || null })
+  }
+
+  const handleFile = (kind: 'avatar' | 'banner') => async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow picking the same file again
+    if (!file) return
+    setUploading(kind)
+    setError(null)
+    try {
+      if (kind === 'avatar') {
+        const url = await uploadAvatar(userId, file, profile.avatar_url)
+        setProfile(p => (p ? { ...p, avatar_url: url } : p))
+      } else {
+        const url = await uploadBanner(userId, file, profile.banner_url)
+        setProfile(p => (p ? { ...p, banner_url: url } : p))
+      }
+      emitAppEvent('profile:refresh')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed.')
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  const handleRemove = async (kind: 'avatar' | 'banner') => {
+    setError(null)
+    try {
+      if (kind === 'avatar') {
+        await removeAvatar(userId, profile.avatar_url)
+        setProfile(p => (p ? { ...p, avatar_url: null } : p))
+      } else {
+        await removeBanner(userId, profile.banner_url)
+        setProfile(p => (p ? { ...p, banner_url: null } : p))
+      }
+      emitAppEvent('profile:refresh')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove.')
+    }
+  }
+
+  const showBio = bioOpen || !!profile.bio
+
+  return (
+    <div className="flex flex-col">
+      <input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFile('avatar')} />
+      <input ref={bannerInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFile('banner')} />
+
+      {/* Banner */}
+      {profile.banner_url && (
+        <div className="group relative h-48 w-full overflow-hidden rounded-2xl bg-gray-100">
+          <img src={profile.banner_url} alt="" className="h-full w-full object-cover" />
+          <HoverActions
+            className="right-3 top-3"
+            onChange={() => bannerInput.current?.click()}
+            onRemove={() => handleRemove('banner')}
           />
+        </div>
+      )}
 
-          <div className="relative mt-3">
-            <button
-              onClick={() => setShowTypePicker(v => !v)}
-              className="flex items-center gap-1.5 rounded-xl border border-dashed border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-400 transition hover:border-indigo-500 hover:text-indigo-600"
-            >
-              <Plus className="h-4 w-4" />
-              Add card
-            </button>
-            {showTypePicker && (
-              <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-xl border border-gray-200 bg-white shadow-xl">
-                {CARD_TYPE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.type}
-                    onClick={() => addCard(opt.type)}
-                    className="flex w-full flex-col px-4 py-3 text-left transition hover:bg-indigo-50"
-                  >
-                    <span className="text-sm font-medium text-gray-800">{opt.label}</span>
-                    <span className="text-xs text-gray-400">{opt.description}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+      <div className="mx-auto w-full max-w-3xl px-2">
+        {/* Icon (= avatar) */}
+        {profile.avatar_url && (
+          <div className={`group relative w-fit ${profile.banner_url ? '-mt-12' : 'mt-6'}`}>
+            <img
+              src={profile.avatar_url}
+              alt=""
+              className="h-24 w-24 rounded-full border-4 border-white object-cover shadow-sm"
+            />
+            <HoverActions
+              className="bottom-2 left-full pl-2"
+              onChange={() => avatarInput.current?.click()}
+              onRemove={() => handleRemove('avatar')}
+            />
           </div>
+        )}
+
+        {/* Name */}
+        <input
+          ref={nameRef}
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onFocus={e => e.target.select()}
+          onBlur={saveName}
+          onKeyDown={e => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') { setName(fullName(profile)); requestAnimationFrame(() => nameRef.current?.blur()) }
+          }}
+          placeholder="Your name"
+          maxLength={80}
+          className="mt-6 w-full bg-transparent text-4xl font-bold text-gray-900 outline-none placeholder:text-gray-300"
+        />
+
+        {/* Add icon / banner / bio — only for what's still missing */}
+        <div className="mt-2 flex flex-wrap gap-1">
+          {!profile.avatar_url && (
+            <AddButton icon={Smile} label={uploading === 'avatar' ? 'Uploading…' : 'Add icon'} onClick={() => avatarInput.current?.click()} />
+          )}
+          {!profile.banner_url && (
+            <AddButton icon={ImageIcon} label={uploading === 'banner' ? 'Uploading…' : 'Add banner'} onClick={() => bannerInput.current?.click()} />
+          )}
+          {!showBio && <AddButton icon={FileText} label="Add bio" onClick={() => setBioOpen(true)} />}
         </div>
 
-        {/* Right: editor */}
-        <div>
-          <p className="mb-2 text-sm font-semibold text-gray-700">Edit card</p>
-          {selectedCard ? (
-            <div className="rounded-2xl border border-gray-200 bg-white p-4">
-              <CardEditorPanel
-                card={selectedCard}
-                userId={userId}
-                onChange={handleCardDataChange}
-                userSkills={userSkills}
-              />
-            </div>
-          ) : (
-            <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-gray-200">
-              <p className="text-sm text-gray-400">Select a card to edit it</p>
+        {/* Bio */}
+        {showBio && (
+          <div className="mt-2">
+            <textarea
+              ref={bioRef}
+              value={bio}
+              onChange={e => setBio(e.target.value.slice(0, BIO_MAX))}
+              onFocus={() => setBioOpen(true)}
+              onBlur={saveBio}
+              placeholder="Write a short bio…"
+              rows={2}
+              className="field-sizing-content w-full resize-none bg-transparent text-base text-gray-600 outline-none placeholder:text-gray-300"
+            />
+            {bioOpen && <p className="text-right text-xs text-gray-300">{bio.length}/{BIO_MAX}</p>}
+          </div>
+        )}
+
+        {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+
+        {/* Components menu — filled in later */}
+        <div className="relative mt-8 border-t border-gray-100 pt-4">
+          <button
+            onClick={() => setPlusOpen(v => !v)}
+            title="Add a component"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+          {plusOpen && (
+            <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
+              <p className="text-sm font-medium text-gray-800">Components</p>
+              <p className="mt-0.5 text-xs text-gray-400">Coming soon.</p>
             </div>
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function AddButton({ icon: Icon, label, onClick }: { icon: typeof Smile; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
+  )
+}
+
+function HoverActions({ className, onChange, onRemove }: { className: string; onChange: () => void; onRemove: () => void }) {
+  return (
+    <div className={`absolute z-10 flex gap-1 opacity-0 transition group-hover:opacity-100 ${className}`}>
+      <button onClick={onChange} className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-white">
+        Change
+      </button>
+      <button onClick={onRemove} className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-white">
+        Remove
+      </button>
     </div>
   )
 }
