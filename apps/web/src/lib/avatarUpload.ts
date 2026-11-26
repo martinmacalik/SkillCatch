@@ -6,7 +6,7 @@ const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 
 export class AvatarUploadError extends Error {}
 
-async function resizeToBlob(file: File, maxDim: number): Promise<Blob> {
+export async function resizeToBlob(file: File, maxDim: number): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
   const w = Math.round(bitmap.width * scale)

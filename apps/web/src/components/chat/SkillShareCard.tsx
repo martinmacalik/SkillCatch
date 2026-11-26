@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Check, Plus } from 'lucide-react'
 import type { Message, SkillShareMetadata } from '@/lib/chat-queries'
-import { STATUS_OPTIONS } from '@/pages/skills/skillStatus'
+import { LevelDots, ProgressBar, StatusPill } from '@/components/skills/SkillVisuals'
+import { formatAttrValue } from '@/lib/skill-format'
 import { colorForIndex } from '@/pages/skills/types'
 
 interface Props {
@@ -16,7 +17,6 @@ interface Props {
 export function SkillShareCard({ message, mine, hasSkill, onAdd }: Props) {
   const meta = message.metadata as SkillShareMetadata
   const [opening, setOpening] = useState(false)
-  const status = STATUS_OPTIONS.find(o => o.key === meta.status)
   // the skill was deleted since → the snapshot stays, but it can't be added
   const available = message.skill_node_id !== null
 
@@ -34,11 +34,7 @@ export function SkillShareCard({ message, mine, hasSkill, onAdd }: Props) {
           <div className={`h-full w-full ${colorForIndex(meta.name.length)}`} />
         )}
         <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
-        {status && (
-          <span className={`absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide shadow-sm ${status.active}`}>
-            {status.label}
-          </span>
-        )}
+        <StatusPill status={meta.status} className="absolute right-2 top-2" />
         <p className="absolute bottom-2 left-3 right-3 truncate text-base font-semibold text-white">{meta.name}</p>
       </div>
 
@@ -46,12 +42,7 @@ export function SkillShareCard({ message, mine, hasSkill, onAdd }: Props) {
         {meta.level && (
           <div className="flex items-center justify-between gap-3">
             <span className="truncate font-medium text-gray-700">{meta.level.name}</span>
-            {/* one dot per level, filled up to mine */}
-            <span className="flex shrink-0 gap-0.5" title={`Level ${meta.level.rank} of ${meta.level.total}`}>
-              {Array.from({ length: meta.level.total }, (_, i) => (
-                <span key={i} className={`h-1.5 w-1.5 rounded-full ${i < meta.level!.rank ? 'bg-purple-600' : 'bg-gray-200'}`} />
-              ))}
-            </span>
+            <LevelDots rank={meta.level.rank} total={meta.level.total} />
           </div>
         )}
 
@@ -61,12 +52,7 @@ export function SkillShareCard({ message, mine, hasSkill, onAdd }: Props) {
               <span>Progress</span>
               <span className="font-medium text-gray-700">{meta.progress.done}/{meta.progress.total}</span>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-linear-to-r from-indigo-600 to-fuchsia-600"
-                style={{ width: `${(meta.progress.done / meta.progress.total) * 100}%` }}
-              />
-            </div>
+            <ProgressBar done={meta.progress.done} total={meta.progress.total} />
           </div>
         )}
 
@@ -75,7 +61,7 @@ export function SkillShareCard({ message, mine, hasSkill, onAdd }: Props) {
             {meta.attributes.map(a => (
               <div key={a.label} className="flex justify-between gap-3">
                 <dt className="text-gray-500">{a.label}</dt>
-                <dd className="truncate text-right font-medium text-gray-700">{formatValue(a.value, a.unit)}</dd>
+                <dd className="truncate text-right font-medium text-gray-700">{formatAttrValue(a.value, a.unit)}</dd>
               </div>
             ))}
           </dl>
@@ -101,13 +87,4 @@ export function SkillShareCard({ message, mine, hasSkill, onAdd }: Props) {
       </div>
     </div>
   )
-}
-
-// value_json from the add-skill form: text, number, yes/no or a list
-function formatValue(value: unknown, unit: string | null): string {
-  const text =
-    Array.isArray(value) ? value.join(', ')
-    : typeof value === 'boolean' ? (value ? 'Yes' : 'No')
-    : String(value ?? '')
-  return unit ? `${text} ${unit}` : text
 }

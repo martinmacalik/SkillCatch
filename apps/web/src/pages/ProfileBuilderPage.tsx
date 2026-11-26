@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { FileText, Image as ImageIcon, Plus, Smile } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { FileText, Image as ImageIcon, Smile } from 'lucide-react'
+import { fetchBlocks, fetchProfileSkills, type Block, type ProfileSkill } from '@/lib/profile-blocks'
+import { EditableBlocks } from '@/components/profile-blocks/EditableBlocks'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuth } from '@/contexts/AuthProvider'
 import { emitAppEvent } from '@/lib/app-events'
@@ -132,8 +134,21 @@ function ProfileEditor({ userId, profile, autoFocusName, save, setProfile, error
   const [name, setName] = useState(fullName(profile))
   const [bio, setBio] = useState(profile.bio ?? '')
   const [bioOpen, setBioOpen] = useState(false)
-  const [plusOpen, setPlusOpen] = useState(false)
   const [uploading, setUploading] = useState<'avatar' | 'banner' | null>(null)
+  const [blocks, setBlocks] = useState<Block[]>([])
+  const [blocksLoaded, setBlocksLoaded] = useState(false)
+  const [skills, setSkills] = useState<Map<string, ProfileSkill>>(new Map())
+
+  const refreshSkills = useCallback(() => {
+    fetchProfileSkills(userId).then(setSkills).catch(() => {})
+  }, [userId])
+
+  useEffect(() => {
+    fetchBlocks(userId)
+      .then(b => { setBlocks(b); setBlocksLoaded(true) })
+      .catch(() => setError('Could not load your blocks.'))
+    refreshSkills()
+  }, [userId, refreshSkills, setError])
 
   const nameRef = useRef<HTMLInputElement>(null)
   const bioRef = useRef<HTMLTextAreaElement>(null)
@@ -285,20 +300,19 @@ function ProfileEditor({ userId, profile, autoFocusName, save, setProfile, error
 
         {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
 
-        {/* Components menu — filled in later */}
-        <div className="relative mt-8 border-t border-gray-100 pt-4">
-          <button
-            onClick={() => setPlusOpen(v => !v)}
-            title="Add a component"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
-          {plusOpen && (
-            <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-xl border border-gray-200 bg-white p-4 shadow-xl">
-              <p className="text-sm font-medium text-gray-800">Components</p>
-              <p className="mt-0.5 text-xs text-gray-400">Coming soon.</p>
-            </div>
+        {/* Blocks (rows of 1–3 components); the first gap zone is the 16 px top padding */}
+        <div className="mt-8 border-t border-gray-100 pb-16">
+          {!blocksLoaded ? (
+            <div className="py-6 text-sm text-gray-300">Loading…</div>
+          ) : (
+            <EditableBlocks
+              userId={userId}
+              blocks={blocks}
+              setBlocks={setBlocks}
+              skills={skills}
+              refreshSkills={refreshSkills}
+              onError={setError}
+            />
           )}
         </div>
       </div>
