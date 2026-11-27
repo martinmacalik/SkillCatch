@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Pencil, Check, Send, X, Clock, Info } from 'lucide-react'
 import {
@@ -10,6 +10,7 @@ import {
   createLearningBlock,
   updateLearningBlock,
   deleteLearningBlock,
+  reorderLearningBlocks,
   touchSkillLastOpened,
   submitLearningSuggestion,
   getMyPendingSuggestion,
@@ -20,6 +21,8 @@ import {
   type BlockType,
   type ProposedBlock,
 } from '@/lib/learn-queries'
+import { closestCenter, DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useIsEditor } from '@/hooks/useIsEditor'
 import { useAuth } from '@/contexts/AuthProvider'
 import { LearningBlockRenderer } from '@/components/learn/LearningBlockRenderer'
@@ -31,10 +34,11 @@ import { EditInfoPanel } from '@/components/learn/EditInfoPanel'
 import { LevelUpPage } from '@/components/learn/LevelUpPage'
 import { ProgressPage } from '@/components/learn/ProgressPage'
 
+// empty on purpose: the editors show placeholders, nothing to delete before typing
 const BLOCK_TEMPLATES: Record<BlockType, Record<string, unknown>> = {
-  heading:       { level: 2, text: 'Section heading' },
+  heading:       { level: 2, text: '' },
   text:          { text: '' },
-  callout:       { tone: 'tip', text: 'Helpful tip…' },
+  callout:       { tone: 'tip', text: '' },
   resource_list: { items: [{ title: '', url: '', description: '' }] },
   flashcards:    { cards: [{ front: '', back: '' }] },
   checklist:     { items: [{ text: '', done: false }] },
@@ -81,6 +85,12 @@ export default function LearnPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const [pendingSuggestion, setPendingSuggestion] = useState<PendingSuggestion | null>(null)
+  // the block just added gets the cursor
+  const [autoFocusId, setAutoFocusId] = useState<string | null>(null)
+  // per block: the last pending DB write, so writes for one block never overtake each other
+  const saveQueue = useRef(new Map<string, Promise<void>>())
+  // a few px of movement before a drag starts, so clicks on the grip still work
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
   // Reset tab-level edit mode when switching tabs
   useEffect(() => { setTabEditing(false) }, [activeTab])
@@ -118,6 +128,7 @@ export default function LearnPage() {
   // ── Edit-mode entry ──
   const enterEditMode = async () => {
     if (data === null || data === 'missing' || data === 'empty') return
+    setAutoFocusId(null) // don't re-focus a block added in an earlier edit session
     if (isEditor) {
       // Editors edit the live page. Lazy-create the page row on first edit.
       if (!data.page) {
@@ -138,11 +149,31 @@ export default function LearnPage() {
     if (data === null || data === 'missing' || data === 'empty' || !data.page) return
     const block = await createLearningBlock(data.page.id, type, data.blocks.length + 1, BLOCK_TEMPLATES[type])
     setData({ ...data, blocks: [...data.blocks, block] })
+    setAutoFocusId(block.id)
+  }
+  // optimistic: move it on screen first, roll back if the save fails
+  const directReorder = (from: number, to: number) => {
+    if (data === null || data === 'missing' || data === 'empty' || !data.page) return
+    const before = data.blocks
+    const after = arrayMove(before, from, to)
+    setData({ ...data, blocks: after })
+    reorderLearningBlocks(data.page.id, after.map(b => b.id)).catch(() => {
+      // roll back the ORDER only: content saved meanwhile stays (it's in the DB already)
+      const pos = (id: string) => { const i = before.findIndex(b => b.id === id); return i < 0 ? Infinity : i }
+      setData(d => (d && d !== 'missing' && d !== 'empty' ? { ...d, blocks: [...d.blocks].sort((a, b) => pos(a.id) - pos(b.id)) } : d))
+      alert('Could not save the new order.')
+    })
   }
   const directEditBlock = (id: string, content: Record<string, unknown>) => {
     if (data === null || data === 'missing' || data === 'empty') return
-    setData({ ...data, blocks: data.blocks.map(b => b.id === id ? { ...b, content } : b) })
-    updateLearningBlock(id, content)
+    // functional: a blur-save can land right after a reorder and must not undo it
+    setData(d => (d && d !== 'missing' && d !== 'empty' ? { ...d, blocks: d.blocks.map(b => b.id === id ? { ...b, content } : b) } : d))
+    // one block's writes run one after another (blur-save then a click on × must land in that order)
+    const prev = saveQueue.current.get(id) ?? Promise.resolve()
+    const next = prev
+      .then(() => updateLearningBlock(id, content))
+      .catch(() => alert('Could not save your change. Check your connection and try again.'))
+    saveQueue.current.set(id, next)
   }
   const directRemoveBlock = async (id: string) => {
     if (data === null || data === 'missing' || data === 'empty') return
@@ -159,10 +190,12 @@ export default function LearnPage() {
 
   // ── Suggestion (local draft) mutations ──
   const draftAddBlock = (type: BlockType) => {
+    const id = crypto.randomUUID()
+    setAutoFocusId(id)
     setDraftBlocks(prev => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id,
         page_id: '',
         type,
         content: BLOCK_TEMPLATES[type],
@@ -176,6 +209,17 @@ export default function LearnPage() {
   }
   const draftRemoveBlock = (id: string) => {
     setDraftBlocks(prev => prev.filter(b => b.id !== id))
+  }
+
+  // drop after dragging a grip: direct → saved order, suggestion → only the local draft
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return
+    const list = editMode === 'suggestion' ? draftBlocks : data && data !== 'missing' && data !== 'empty' ? data.blocks : []
+    const from = list.findIndex(b => b.id === active.id)
+    const to = list.findIndex(b => b.id === over.id)
+    if (from < 0 || to < 0) return
+    if (editMode === 'suggestion') setDraftBlocks(prev => arrayMove(prev, from, to))
+    else directReorder(from, to)
   }
 
   // ── Submit a suggestion ──
@@ -402,17 +446,22 @@ export default function LearnPage() {
               </p>
             )}
 
-            {editing
-              ? visibleBlocks.map((b, i) => (
-                  <div key={b.id} className={b.type === 'heading' && i > 0 ? 'mt-5' : ''}>
-                    <EditableBlockRow
-                      block={b}
-                      onChange={c => editMode === 'direct' ? directEditBlock(b.id, c) : draftEditBlock(b.id, c)}
-                      onDelete={() => editMode === 'direct' ? directRemoveBlock(b.id) : draftRemoveBlock(b.id)}
-                    />
-                  </div>
-                ))
-              : visibleBlocks.map((b, i) => (
+            {editing ? (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                <SortableContext items={visibleBlocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                  {visibleBlocks.map((b, i) => (
+                    <div key={b.id} className={b.type === 'heading' && i > 0 ? 'mt-5' : ''}>
+                      <EditableBlockRow
+                        block={b}
+                        autoFocus={b.id === autoFocusId}
+                        onChange={c => editMode === 'direct' ? directEditBlock(b.id, c) : draftEditBlock(b.id, c)}
+                        onDelete={() => editMode === 'direct' ? directRemoveBlock(b.id) : draftRemoveBlock(b.id)}
+                      />
+                    </div>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            ) : visibleBlocks.map((b, i) => (
                   <div key={b.id} className={`px-4 ${b.type === 'heading' && i > 0 ? 'pt-7 pb-2' : 'py-2'}`}>
                     <LearningBlockRenderer block={b} />
                   </div>

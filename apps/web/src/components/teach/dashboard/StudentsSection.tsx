@@ -17,12 +17,18 @@ interface StudentsSectionProps {
   onSetStatus: (linkId: string, status: TeacherStudentStatus) => Promise<void>
 }
 
-export function StudentsSection({ enabled, requests, students, loading, error, now, onSetStatus }: StudentsSectionProps) {
+/**
+ * Requests to accept / decline. The students themselves live on the class pages
+ * (one class per skill, see ClassesSection) — this section hides once there's
+ * nothing to decide and you already have students.
+ */
+export function StudentsSection({ enabled, requests, students, loading, error, onSetStatus }: StudentsSectionProps) {
+  if (enabled && !loading && !error && requests.length === 0 && students.length > 0) return null
+
   return (
     <section className="rounded-2xl bg-white p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold text-gray-900">Your students</h3>
-        {enabled && students.length > 0 && <span className="text-sm text-gray-400">{students.length} total</span>}
+        <h3 className="text-base font-semibold text-gray-900">{requests.length > 0 ? 'New requests' : 'Your students'}</h3>
       </div>
 
       {!enabled ? (
@@ -38,31 +44,18 @@ export function StudentsSection({ enabled, requests, students, loading, error, n
       ) : (
         <>
           {requests.length > 0 && (
-            <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold tracking-widest text-gray-400 uppercase">
-                Requests · {requests.length}
-              </p>
-              <ul className="flex flex-col gap-2">
-                {requests.map((r) => (
-                  <RequestRow key={r.link_id} row={r} onSetStatus={onSetStatus} />
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {students.length === 0 ? (
-            requests.length === 0 && (
-              <EmptyBox icon={Users}>
-                No students yet. They&apos;ll find you under &ldquo;Teachers&rdquo; on the pages of the skills on your
-                license.
-              </EmptyBox>
-            )
-          ) : (
-            <ul className={cn('flex flex-col divide-y divide-gray-100', requests.length > 0 && 'mt-5')}>
-              {students.map((s) => (
-                <StudentRow key={s.link_id} row={s} now={now} />
+            <ul className="mt-4 flex flex-col gap-2">
+              {requests.map((r) => (
+                <RequestRow key={r.link_id} row={r} onSetStatus={onSetStatus} />
               ))}
             </ul>
+          )}
+
+          {students.length === 0 && requests.length === 0 && (
+            <EmptyBox icon={Users}>
+              No students yet. They&apos;ll find you under &ldquo;Teachers&rdquo; on the pages of the skills on your
+              license.
+            </EmptyBox>
           )}
         </>
       )}
@@ -141,7 +134,8 @@ function RequestRow({
   )
 }
 
-function StudentRow({ row, now }: { row: StudentOverview; now: number }) {
+/** One active student (used on the class page). `extra` = e.g. open / returned assignment counts. */
+export function StudentRow({ row, now, extra }: { row: StudentOverview; now: number; extra?: ReactNode }) {
   const navigate = useNavigate()
   const [opening, setOpening] = useState(false)
   const online = isActiveNow(row.last_active_at, now)
@@ -199,6 +193,8 @@ function StudentRow({ row, now }: { row: StudentOverview; now: number }) {
       <p className={cn('w-24 shrink-0 text-xs', online ? 'font-semibold text-emerald-600' : 'text-gray-400')}>
         {online ? 'Active now' : lastSeen(row.last_active_at, now)}
       </p>
+
+      {extra}
 
       <button
         type="button"

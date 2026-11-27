@@ -1,3 +1,4 @@
+import { asText } from '../content'
 import { Lightbulb, AlertTriangle, Info } from 'lucide-react'
 
 const TONE_CONFIG: Record<string, {
@@ -13,7 +14,8 @@ const TONE_CONFIG: Record<string, {
 export function CalloutBlock({ content }: { content: Record<string, unknown> }) {
   const tone = (content.tone as string) ?? 'note'
   const { Icon, iconClass, textClass } = TONE_CONFIG[tone] ?? TONE_CONFIG.note
-  const text = (content.text as string) ?? ''
+  const text = asText(content.text)
+  if (!text.trim()) return null
 
   return (
     <div className="w-fit rounded-full bg-gray-800 px-5 py-2.5">

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, UserPlus, XCircle } from 'lucide-react'
+import { CheckCircle2, ClipboardList, MessageCircle, RotateCcw, UserPlus, XCircle } from 'lucide-react'
 import { Bell } from 'reicon-react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '@/hooks/useNotifications'
@@ -102,11 +102,19 @@ function NotificationRow({
   onGoToSkill: (name?: string | null) => void
   onGo: (path: string) => void
 }) {
-  const ok = n.type === 'skill_approved' || n.type === 'license_approved' || n.type === 'student_accepted'
+  const ok =
+    n.type === 'skill_approved' || n.type === 'license_approved' || n.type === 'student_accepted'
+    || (n.type === 'assignment_reviewed' && n.data.decision === 'done')
   const neutral = n.type === 'student_request'
   return (
     <div className={`flex gap-3 border-b border-gray-50 px-4 py-3 last:border-b-0 ${fresh ? 'bg-purple-50/60' : ''}`}>
-      {neutral ? (
+      {n.type === 'assignment_new' || n.type === 'assignment_submitted' ? (
+        <ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-purple-600" />
+      ) : n.type === 'assignment_comment' ? (
+        <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-purple-600" />
+      ) : n.type === 'assignment_reviewed' && n.data.decision === 'returned' ? (
+        <RotateCcw className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+      ) : neutral ? (
         <UserPlus className="mt-0.5 h-5 w-5 shrink-0 text-purple-600" />
       ) : ok ? (
         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
@@ -205,5 +213,38 @@ function NotificationBody({
           <span className="font-semibold">{n.data.skill_name}</span>.
         </p>
       )
+    case 'assignment_new':
+    case 'assignment_submitted':
+    case 'assignment_reviewed':
+    case 'assignment_comment': {
+      const d = n.data
+      // where the student vs. the teacher works on it
+      const studentLink = `/dashboard/learn/${d.skill_node_id}?assignment=${d.assignment_id}`
+      const teacherLink = `/dashboard/teach/class/${d.skill_node_id}?assignment=${d.assignment_id}${d.student_id ? `&student=${d.student_id}` : ''}`
+      const forTeacher = n.type === 'assignment_submitted' || (n.type === 'assignment_comment' && d.to_role === 'teacher')
+      return (
+        <>
+          <p className="text-sm text-gray-900">
+            {n.type === 'assignment_new' ? (
+              <><span className="font-semibold">{d.other_name}</span> gave you a new assignment: <span className="font-semibold">{d.title}</span></>
+            ) : n.type === 'assignment_submitted' ? (
+              <><span className="font-semibold">{d.other_name}</span> submitted <span className="font-semibold">{d.title}</span></>
+            ) : n.type === 'assignment_reviewed' ? (
+              d.decision === 'done' ? (
+                <><span className="font-semibold">{d.title}</span> was marked done.</>
+              ) : (
+                <><span className="font-semibold">{d.title}</span> was returned. Take a look at the feedback.</>
+              )
+            ) : (
+              <><span className="font-semibold">{d.other_name}</span> commented on <span className="font-semibold">{d.title}</span></>
+            )}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">{d.skill_name}</p>
+          <button onClick={() => onGo(forTeacher ? teacherLink : studentLink)} className={actionLink}>
+            {forTeacher && n.type === 'assignment_submitted' ? 'Review →' : 'Open →'}
+          </button>
+        </>
+      )
+    }
   }
 }

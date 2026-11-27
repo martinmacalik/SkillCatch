@@ -122,21 +122,32 @@ export interface MyTeacherLink {
   id: string
   teacherId: string
   status: 'pending' | 'active'
+  /** from profiles, so an active teacher still shows when they're off the teacher list */
+  teacherName: string
+  teacherAvatarUrl: string | null
 }
 
 /** My open requests / active teachers for one skill. */
 export async function fetchMyTeacherLinks(userId: string, skillNodeId: string): Promise<MyTeacherLink[]> {
   const { data, error } = await supabase
     .from('teacher_students')
-    .select('id, teacher_id, status')
+    .select('id, teacher_id, status, teacher:profiles!teacher_id(first_name, last_name, username, avatar_url)')
     .eq('student_id', userId)
     .eq('skill_node_id', skillNodeId)
     .in('status', ['pending', 'active'])
   if (error) throw error
-  return ((data ?? []) as { id: string; teacher_id: string; status: 'pending' | 'active' }[]).map((r) => ({
+  type Row = {
+    id: string
+    teacher_id: string
+    status: 'pending' | 'active'
+    teacher: { first_name: string | null; last_name: string | null; username: string | null; avatar_url: string | null } | null
+  }
+  return ((data ?? []) as unknown as Row[]).map((r) => ({
     id: r.id,
     teacherId: r.teacher_id,
     status: r.status,
+    teacherName: r.teacher ? personName(r.teacher) : 'Teacher',
+    teacherAvatarUrl: r.teacher?.avatar_url ?? null,
   }))
 }
 

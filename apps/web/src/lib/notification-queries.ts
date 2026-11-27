@@ -53,6 +53,26 @@ export type AppNotification =
       read_at: string | null
       created_at: string
     }
+  | {
+      id: string
+      /** written by the Teach RPCs in migration 20261127001 */
+      type: 'assignment_new' | 'assignment_submitted' | 'assignment_reviewed' | 'assignment_comment'
+      data: AssignmentNotificationData
+      read_at: string | null
+      created_at: string
+    }
+
+export interface AssignmentNotificationData {
+  assignment_id: string
+  title: string
+  skill_node_id: string
+  skill_name: string
+  /** the other side: the teacher for a student, the student for a teacher */
+  other_name: string
+  decision?: 'done' | 'returned'
+  to_role?: 'student' | 'teacher'
+  student_id?: string
+}
 
 // RLS returns only the caller's rows
 export async function fetchNotifications(): Promise<AppNotification[]> {

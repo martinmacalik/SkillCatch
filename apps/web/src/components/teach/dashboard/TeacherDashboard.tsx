@@ -8,7 +8,7 @@ import { LicenseCard } from '../LicenseCard'
 import { StatusBadge } from '../StatusBadge'
 import { LicenseSkillsPanel } from './LicenseSkillsPanel'
 import { LicenseStatusBanner } from './LicenseStatusBanner'
-import { MaterialsSection } from './MaterialsSection'
+import { ClassesSection } from './ClassesSection'
 import { StudentsSection } from './StudentsSection'
 
 interface TeacherDashboardProps {
@@ -81,7 +81,7 @@ export function TeacherDashboard({
         <LicenseSkillsPanel userId={userId} live={live} open={open} onEdit={onEdit} onChanged={onProofsChanged} />
         </div>
 
-        {/* ── right: students + materials ── */}
+        {/* ── right: requests + classes (materials library comes in phase 2) ── */}
         <div className="flex min-w-0 flex-col gap-5">
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <Stat label="Students" value={live ? students.length : '–'} accent />
@@ -99,7 +99,7 @@ export function TeacherDashboard({
             onSetStatus={setStatus}
           />
 
-          <MaterialsSection />
+          {live && <ClassesSection reloadKey={students.length} />}
         </div>
       </div>
     </div>

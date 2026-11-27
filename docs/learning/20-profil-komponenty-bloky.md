@@ -190,3 +190,60 @@ setBlocks(prev => prev.map(b => (b.id === block.id ? { ...b, data } : b)))
 5. Proč nestačí zkontrolovat URL jen při uložení bloku?
 6. Jak migrace zařídí, že druhé spuštění nepřepíše rozložení, které si uživatel mezitím naskládal?
 7. Kdy potřebuješ `setState(prev => …)` místo `setState(hodnota)`?
+
+## 11. Dodatek: úpravy po zpětné vazbě
+
+Po prvním vyzkoušení se ukázaly tři věci, které „fungovaly“, ale pracovalo se s nimi špatně.
+
+### Výběr skillu se otevíral moc nízko → inline picker a dropdown, který se otočí nahoru
+
+- **Prázdný** Skill list nebo Spotlight ukáže hledání **přímo uvnitř bloku** (`<SkillPicker inline>`) v čárkovaném rámečku. Nic nevyskakuje a nemůže to vyjet z obrazovky.
+- **Úprava** existujícího seznamu otevře dropdown. Když pod tlačítkem není místo, otevře se **nad** ním a pořadí se otočí, takže hledání je dole u tlačítka.
+
+```tsx
+<div className={`flex ${up ? 'flex-col-reverse' : 'flex-col'} …`}>   {/* stejné děti, opačné pořadí */}
+```
+
+`flex-col-reverse` vykreslí stejné potomky odspodu nahoru, takže v JSX se nic nepřehazuje.
+
+### Hook `useDropUp`: rozhodnout jednou, před vykreslením
+
+[useDropUp.ts](../../apps/web/src/components/profile-blocks/useDropUp.ts) změří, kolik místa je pod rodičem, a vrátí `up`:
+
+```ts
+const attach = useCallback((el: HTMLElement | null) => {
+  const anchor = el?.parentElement
+  if (disabled || !anchor || placed.current) return
+  placed.current = true
+  const { top, bottom } = anchor.getBoundingClientRect()
+  const roomBelow = window.innerHeight - bottom
+  if (roomBelow < maxHeight && top > roomBelow) setUp(true)
+}, [maxHeight, disabled])
+```
+
+- **Ref callback** (`ref={attach}`) React zavolá hned, jak prvek vloží do DOM, ještě před vykreslením na obrazovku. Měření v `useLayoutEffect` + `setState` by narazilo na lint pravidlo `set-state-in-effect`.
+- `placed` (ref) zajistí, že se rozhoduje **jen jednou**. Dropdown pak neposkakuje nahoru a dolů, když se při hledání mění jeho výška.
+- Stejný hook používá i menu **Add a block**.
+
+### Menu „Add a block“ → dlaždice vedle sebe
+
+Pět typů bloků je teď vedle sebe jako dlaždice (ikona + název, popis v tooltipu). Menu je široké a nízké (asi 100 px), takže se pod **+** vejde skoro vždycky. Když ne, `useDropUp(120)` ho otevře nahoru.
+
+### Štítek při přetahování „utíkal“ od kurzoru
+
+`DragOverlay` začíná tam, kde byl levý horní roh přetahovaného bloku. Úchyt ⋮⋮ je ale vpravo nahoře, takže štítek visel daleko vlevo od myši. Pomohl vlastní **modifier** z dnd-kit, funkce, která upraví posun overlaye:
+
+```ts
+const labelUnderCursor: Modifier = ({ activatorEvent, draggingNodeRect, transform }) => {
+  const start = activatorEvent && getEventCoordinates(activatorEvent)   // kde jsem klikl
+  if (!start || !draggingNodeRect) return transform
+  return {
+    ...transform,
+    x: transform.x + start.x - draggingNodeRect.left - 18,               // úchyt štítku pod kurzor
+    y: transform.y + start.y - draggingNodeRect.top - draggingNodeRect.height / 2,
+  }
+}
+<DragOverlay modifiers={[labelUnderCursor]}>
+```
+
+Rozdíl `start − roh bloku` je vzdálenost kliknutí od rohu. O ni overlay posuneme, takže štítek drží přesně tam, kde jsi blok chytil.

@@ -1,3 +1,4 @@
+import { asList, asText } from '../content'
 interface Item {
   text: string
   done?: boolean
@@ -6,7 +7,9 @@ interface Item {
 // Read-only renderer. Per-user checked state is intentionally NOT persisted
 // in MVP — that's user-specific data and belongs in user_skill_progress later.
 export function ChecklistBlock({ content }: { content: Record<string, unknown> }) {
-  const items = (content.items as Item[]) ?? []
+  const items: Item[] = asList(content.items)
+    .map(it => ({ text: asText(it.text), done: !!it.done }))
+    .filter(it => it.text.trim())
   if (items.length === 0) return null
   return (
     <ul className="flex flex-col gap-2">

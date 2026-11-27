@@ -1,3 +1,4 @@
+import { asList, asText } from '../content'
 import { useState } from 'react'
 
 interface Card {
@@ -6,7 +7,9 @@ interface Card {
 }
 
 export function FlashcardsBlock({ content }: { content: Record<string, unknown> }) {
-  const cards = (content.cards as Card[]) ?? []
+  const cards: Card[] = asList(content.cards)
+    .map(c => ({ front: asText(c.front), back: asText(c.back) }))
+    .filter(c => c.front.trim() || c.back.trim())
   const [i, setI] = useState(0)
   const [flipped, setFlipped] = useState(false)
   if (cards.length === 0) return null
